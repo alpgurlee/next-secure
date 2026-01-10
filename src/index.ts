@@ -1,0 +1,112 @@
+/**
+ * next-secure
+ *
+ * Production-ready security middleware for Next.js 13+ App Router.
+ *
+ * @example
+ * ```typescript
+ * import { withRateLimit, withAuth, secure } from 'next-secure'
+ *
+ * // Simple rate limiting
+ * export const GET = withRateLimit(
+ *   async (req) => Response.json({ ok: true }),
+ *   { limit: 100, window: '15m' }
+ * )
+ *
+ * // Builder pattern
+ * export const POST = secure()
+ *   .rateLimit({ limit: 10, window: '1m' })
+ *   .auth({ roles: ['admin'] })
+ *   .handle(async (req, ctx) => {
+ *     return Response.json({ user: ctx.user })
+ *   })
+ * ```
+ *
+ * @packageDocumentation
+ */
+
+// =============================================================================
+// Core
+// =============================================================================
+
+export type {
+  NextRequest,
+  SecureContext,
+  SecureHandler,
+  Middleware,
+  ErrorResponse,
+  RateLimitInfo,
+  Duration,
+  RateLimitAlgorithm,
+  RateLimitIdentifier,
+} from './core/types'
+
+export {
+  SecureError,
+  RateLimitError,
+  AuthenticationError,
+  AuthorizationError,
+  ValidationError,
+  CsrfError,
+  ConfigurationError,
+  isSecureError,
+  toSecureError,
+} from './core/errors'
+
+// =============================================================================
+// Rate Limiting
+// =============================================================================
+
+export {
+  withRateLimit,
+  createRateLimiter,
+  checkRateLimit,
+  resetRateLimit,
+  getRateLimitStatus,
+  clearAllRateLimits,
+} from './middleware/rate-limit'
+
+export type {
+  RateLimitConfig,
+  RateLimitStore,
+  MemoryStoreOptions,
+  RedisStoreOptions,
+  UpstashStoreOptions,
+} from './middleware/rate-limit'
+
+export {
+  MemoryStore,
+  createMemoryStore,
+  getGlobalMemoryStore,
+} from './middleware/rate-limit'
+
+// =============================================================================
+// Utilities
+// =============================================================================
+
+export {
+  parseDuration,
+  formatDuration,
+  nowInSeconds,
+  nowInMs,
+  sleep,
+} from './utils/time'
+
+export {
+  getClientIp,
+  normalizeIp,
+  isValidIp,
+  isPrivateIp,
+  isLocalhost,
+  anonymizeIp,
+  getGeoInfo,
+} from './utils/ip'
+
+// =============================================================================
+// Version
+// =============================================================================
+
+/**
+ * Package version
+ */
+export const VERSION = '0.1.0'

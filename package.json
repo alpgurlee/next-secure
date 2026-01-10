@@ -1,0 +1,130 @@
+{
+  "name": "next-secure",
+  "version": "0.1.0",
+  "description": "Production-ready security middleware for Next.js 13+ App Router",
+  "author": "alpgu",
+  "license": "MIT",
+  "homepage": "https://github.com/alpgu/next-secure#readme",
+  "bugs": {
+    "url": "https://github.com/alpgu/next-secure/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/alpgu/next-secure.git"
+  },
+  "keywords": [
+    "next",
+    "nextjs",
+    "security",
+    "middleware",
+    "rate-limit",
+    "authentication",
+    "csrf",
+    "xss",
+    "api"
+  ],
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
+    },
+    "./rate-limit": {
+      "import": {
+        "types": "./dist/rate-limit.d.ts",
+        "default": "./dist/rate-limit.js"
+      },
+      "require": {
+        "types": "./dist/rate-limit.d.cts",
+        "default": "./dist/rate-limit.cjs"
+      }
+    },
+    "./auth": {
+      "import": {
+        "types": "./dist/auth.d.ts",
+        "default": "./dist/auth.js"
+      },
+      "require": {
+        "types": "./dist/auth.d.cts",
+        "default": "./dist/auth.cjs"
+      }
+    },
+    "./csrf": {
+      "import": {
+        "types": "./dist/csrf.d.ts",
+        "default": "./dist/csrf.js"
+      },
+      "require": {
+        "types": "./dist/csrf.d.cts",
+        "default": "./dist/csrf.cjs"
+      }
+    },
+    "./headers": {
+      "import": {
+        "types": "./dist/headers.d.ts",
+        "default": "./dist/headers.js"
+      },
+      "require": {
+        "types": "./dist/headers.d.cts",
+        "default": "./dist/headers.cjs"
+      }
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "dev": "tsup --watch",
+    "build": "tsup",
+    "test": "vitest",
+    "test:run": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "lint": "eslint src --ext .ts",
+    "lint:fix": "eslint src --ext .ts --fix",
+    "format": "prettier --write \"src/**/*.ts\"",
+    "typecheck": "tsc --noEmit",
+    "prepublishOnly": "npm run build",
+    "release": "changeset publish"
+  },
+  "peerDependencies": {
+    "next": ">=13.0.0"
+  },
+  "peerDependenciesMeta": {
+    "zod": {
+      "optional": true
+    },
+    "@upstash/redis": {
+      "optional": true
+    },
+    "ioredis": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@changesets/cli": "^2.27.0",
+    "@types/node": "^20.10.0",
+    "@typescript-eslint/eslint-plugin": "^6.13.0",
+    "@typescript-eslint/parser": "^6.13.0",
+    "@vitest/coverage-v8": "^1.0.0",
+    "eslint": "^8.55.0",
+    "eslint-config-prettier": "^9.1.0",
+    "prettier": "^3.1.0",
+    "tsup": "^8.0.0",
+    "typescript": "^5.3.0",
+    "vitest": "^1.0.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
