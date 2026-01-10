@@ -1,6 +1,6 @@
-# next-secure
+# nextjs-secure
 
-[![npm version](https://badge.fury.io/js/next-secure.svg)](https://www.npmjs.com/package/next-secure)
+[![npm version](https://badge.fury.io/js/nextjs-secure.svg)](https://www.npmjs.com/package/nextjs-secure)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-blue.svg)](https://www.typescriptlang.org/)
 [![Next.js](https://img.shields.io/badge/Next.js-13+-black.svg)](https://nextjs.org/)
@@ -8,7 +8,7 @@
 Production-ready security middleware for Next.js App Router. Zero config, maximum protection.
 
 ```typescript
-import { withRateLimit } from 'next-secure'
+import { withRateLimit } from 'nextjs-secure'
 
 export const GET = withRateLimit(
   async (req) => Response.json({ message: 'Hello!' }),
@@ -16,11 +16,11 @@ export const GET = withRateLimit(
 )
 ```
 
-## Why next-secure?
+## Why nextjs-secure?
 
 Building secure APIs in Next.js shouldn't require hours of boilerplate. Most projects end up with copy-pasted rate limiting code, inconsistent error handling, and security gaps.
 
-**next-secure** provides battle-tested security primitives that work out of the box:
+**nextjs-secure** provides battle-tested security primitives that work out of the box:
 
 - **Zero Configuration** - Sensible defaults, works immediately
 - **Type Safe** - Full TypeScript support with generics
@@ -31,11 +31,11 @@ Building secure APIs in Next.js shouldn't require hours of boilerplate. Most pro
 ## Installation
 
 ```bash
-npm install next-secure
+npm install nextjs-secure
 # or
-yarn add next-secure
+yarn add nextjs-secure
 # or
-pnpm add next-secure
+pnpm add nextjs-secure
 ```
 
 ## Table of Contents
@@ -59,7 +59,7 @@ pnpm add next-secure
 
 ```typescript
 // app/api/posts/route.ts
-import { withRateLimit } from 'next-secure'
+import { withRateLimit } from 'nextjs-secure'
 
 export const GET = withRateLimit(
   async (request) => {
@@ -77,7 +77,7 @@ export const GET = withRateLimit(
 
 ```typescript
 // lib/rate-limit.ts
-import { createRateLimiter } from 'next-secure'
+import { createRateLimiter } from 'nextjs-secure'
 
 export const apiLimiter = createRateLimiter({
   limit: 100,
@@ -110,7 +110,7 @@ export const POST = strictLimiter(async (req) => {
 The `withRateLimit` higher-order function wraps your route handler:
 
 ```typescript
-import { withRateLimit } from 'next-secure'
+import { withRateLimit } from 'nextjs-secure'
 
 export const GET = withRateLimit(handler, {
   limit: 100,        // Max requests allowed
@@ -189,7 +189,7 @@ export const GET = withRateLimit(handler, {
 Built-in, zero-config. Perfect for development and single-instance deployments.
 
 ```typescript
-import { withRateLimit, MemoryStore } from 'next-secure'
+import { withRateLimit, MemoryStore } from 'nextjs-secure'
 
 const store = new MemoryStore({
   cleanupInterval: 60000,  // Cleanup every minute
@@ -214,7 +214,7 @@ For distributed deployments. Works with ioredis, node-redis, or any compatible c
 
 ```typescript
 import Redis from 'ioredis'
-import { withRateLimit, createRedisStore } from 'next-secure/rate-limit'
+import { withRateLimit, createRedisStore } from 'nextjs-secure/rate-limit'
 
 const redis = new Redis(process.env.REDIS_URL)
 
@@ -240,7 +240,7 @@ export const GET = withRateLimit(handler, {
 Optimized for serverless and edge. Uses HTTP-based Redis.
 
 ```typescript
-import { withRateLimit, createUpstashStore } from 'next-secure/rate-limit'
+import { withRateLimit, createUpstashStore } from 'nextjs-secure/rate-limit'
 
 const store = createUpstashStore({
   url: process.env.UPSTASH_REDIS_REST_URL,
@@ -254,7 +254,7 @@ export const GET = withRateLimit(handler, {
 })
 
 // Or from environment variables
-import { createUpstashStoreFromEnv } from 'next-secure/rate-limit'
+import { createUpstashStoreFromEnv } from 'nextjs-secure/rate-limit'
 const store = createUpstashStoreFromEnv()
 ```
 
@@ -367,7 +367,7 @@ When `headers: true` (default), responses include:
 For existing handlers or complex logic:
 
 ```typescript
-import { checkRateLimit } from 'next-secure'
+import { checkRateLimit } from 'nextjs-secure'
 
 export async function GET(request: NextRequest) {
   const { success, info, headers } = await checkRateLimit(request, {
@@ -392,7 +392,7 @@ export async function GET(request: NextRequest) {
 ### Duration Parsing
 
 ```typescript
-import { parseDuration, formatDuration } from 'next-secure'
+import { parseDuration, formatDuration } from 'nextjs-secure'
 
 parseDuration('15m')        // 900000
 parseDuration('1h 30m')     // 5400000
@@ -406,7 +406,7 @@ formatDuration(90061000)    // '1d 1h 1m 1s'
 ### IP Utilities
 
 ```typescript
-import { getClientIp, anonymizeIp, isPrivateIp } from 'next-secure'
+import { getClientIp, anonymizeIp, isPrivateIp } from 'nextjs-secure'
 
 // Extract client IP from request
 const ip = getClientIp(request)
@@ -484,7 +484,7 @@ interface RateLimitInfo {
 
 ```typescript
 // app/api/posts/route.ts
-import { withRateLimit } from 'next-secure'
+import { withRateLimit } from 'nextjs-secure'
 
 // Generous limit for reads
 export const GET = withRateLimit(getHandler, {
@@ -509,7 +509,7 @@ export const DELETE = withRateLimit(deleteHandler, {
 
 ```typescript
 // lib/rate-limit.ts
-import { createRateLimiter, createUpstashStore } from 'next-secure/rate-limit'
+import { createRateLimiter, createUpstashStore } from 'nextjs-secure/rate-limit'
 
 const store = createUpstashStore({
   url: process.env.UPSTASH_REDIS_REST_URL!,
@@ -542,7 +542,7 @@ export const proLimiter = createRateLimiter({
 ### With Authentication
 
 ```typescript
-import { withRateLimit } from 'next-secure'
+import { withRateLimit } from 'nextjs-secure'
 import { getServerSession } from 'next-auth'
 
 export const GET = withRateLimit(
@@ -569,7 +569,7 @@ export const GET = withRateLimit(
 ### Webhook Endpoint
 
 ```typescript
-import { withRateLimit } from 'next-secure'
+import { withRateLimit } from 'nextjs-secure'
 import { headers } from 'next/headers'
 import crypto from 'crypto'
 
@@ -631,7 +631,7 @@ Contributions are welcome! Please read [CONTRIBUTING.md](CONTRIBUTING.md) for de
 
 ```bash
 # Clone
-git clone https://github.com/alpgu/next-secure.git
+git clone https://github.com/alpgurlee/next-secure.git
 cd next-secure
 
 # Install

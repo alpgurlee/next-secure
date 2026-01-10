@@ -1,5 +1,5 @@
 {
-  "name": "next-secure",
+  "name": "nextjs-secure",
   "version": "0.1.0",
   "description": "Production-ready security middleware for Next.js 13+ App Router",
   "author": "alpgu",
