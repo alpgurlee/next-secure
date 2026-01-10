@@ -1,16 +1,16 @@
 {
   "name": "nextjs-secure",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Production-ready security middleware for Next.js 13+ App Router",
-  "author": "alpgu",
+  "author": "Alp Eren Gürle",
   "license": "MIT",
-  "homepage": "https://github.com/alpgu/next-secure#readme",
+  "homepage": "https://github.com/alpgurlee/next-secure#readme",
   "bugs": {
-    "url": "https://github.com/alpgu/next-secure/issues"
+    "url": "https://github.com/alpgurlee/next-secure/issues"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/alpgu/next-secure.git"
+    "url": "git+https://github.com/alpgurlee/next-secure.git"
   },
   "keywords": [
     "next",
