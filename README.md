@@ -56,6 +56,12 @@ pnpm add nextjs-secure
   - [Quick Start](#quick-start-1)
   - [Presets](#presets)
   - [Custom Configuration](#custom-configuration)
+- [Authentication](#authentication)
+  - [JWT Authentication](#jwt-authentication)
+  - [API Key Authentication](#api-key-authentication)
+  - [Session Authentication](#session-authentication)
+  - [Role-Based Access Control](#role-based-access-control)
+  - [Combined Authentication](#combined-authentication)
 - [Utilities](#utilities)
 - [API Reference](#api-reference)
 - [Examples](#examples)
@@ -630,6 +636,282 @@ export async function GET() {
 | Cross-Origin-Embedder-Policy | Controls embedding |
 | Cross-Origin-Resource-Policy | Controls resource sharing |
 
+## Authentication
+
+Flexible authentication middleware supporting JWT, API keys, session cookies, and role-based access control.
+
+### JWT Authentication
+
+```typescript
+import { withJWT } from 'nextjs-secure/auth'
+
+export const GET = withJWT(
+  async (req, ctx) => {
+    // ctx.user contains the authenticated user
+    return Response.json({ user: ctx.user })
+  },
+  {
+    secret: process.env.JWT_SECRET,
+    // or use publicKey for RS256/ES256
+  }
+)
+```
+
+#### Configuration
+
+```typescript
+export const GET = withJWT(handler, {
+  // Secret for HMAC algorithms (HS256, HS384, HS512)
+  secret: process.env.JWT_SECRET,
+
+  // Public key for RSA/ECDSA (RS256, ES256, etc.)
+  publicKey: process.env.JWT_PUBLIC_KEY,
+
+  // Allowed algorithms (default: ['HS256'])
+  algorithms: ['HS256', 'RS256'],
+
+  // Validate issuer
+  issuer: 'https://myapp.com',
+  // or multiple issuers
+  issuer: ['https://auth.myapp.com', 'https://api.myapp.com'],
+
+  // Validate audience
+  audience: 'my-api',
+
+  // Clock tolerance in seconds (for exp/nbf claims)
+  clockTolerance: 30,
+
+  // Custom token extraction
+  getToken: (req) => req.headers.get('x-auth-token'),
+
+  // Custom user mapping from JWT payload
+  mapUser: (payload) => ({
+    id: payload.sub,
+    email: payload.email,
+    roles: payload.roles || [],
+  }),
+})
+```
+
+### API Key Authentication
+
+```typescript
+import { withAPIKey } from 'nextjs-secure/auth'
+
+export const GET = withAPIKey(
+  async (req, ctx) => {
+    return Response.json({ user: ctx.user })
+  },
+  {
+    validate: async (apiKey, req) => {
+      // Return user object if valid, null if invalid
+      const user = await db.users.findByApiKey(apiKey)
+      return user || null
+    },
+  }
+)
+```
+
+#### Configuration
+
+```typescript
+export const GET = withAPIKey(handler, {
+  // Required: validation function
+  validate: async (apiKey, req) => {
+    // Lookup API key and return user or null
+    return db.apiKeys.findUser(apiKey)
+  },
+
+  // Header name (default: 'x-api-key')
+  headerName: 'x-api-key',
+
+  // Query parameter name (default: 'api_key')
+  queryParam: 'api_key',
+})
+```
+
+API keys can be sent via header or query parameter:
+```bash
+# Via header
+curl -H "x-api-key: YOUR_API_KEY" https://api.example.com/data
+
+# Via query parameter
+curl https://api.example.com/data?api_key=YOUR_API_KEY
+```
+
+### Session Authentication
+
+```typescript
+import { withSession } from 'nextjs-secure/auth'
+
+export const GET = withSession(
+  async (req, ctx) => {
+    return Response.json({ user: ctx.user })
+  },
+  {
+    validate: async (sessionId, req) => {
+      // Return user object if session valid, null if invalid
+      const session = await db.sessions.find(sessionId)
+      return session?.user || null
+    },
+  }
+)
+```
+
+#### Configuration
+
+```typescript
+export const GET = withSession(handler, {
+  // Required: session validation function
+  validate: async (sessionId, req) => {
+    const session = await redis.get(`session:${sessionId}`)
+    if (!session) return null
+    return JSON.parse(session)
+  },
+
+  // Cookie name (default: 'session')
+  cookieName: 'session',
+})
+```
+
+### Role-Based Access Control
+
+Use `withRoles` after an authentication middleware to enforce role/permission requirements.
+
+```typescript
+import { withJWT, withRoles } from 'nextjs-secure/auth'
+
+// Chain with JWT auth
+const authenticatedHandler = withJWT(
+  withRoles(
+    async (req, ctx) => {
+      return Response.json({ admin: true })
+    },
+    { roles: ['admin'] }
+  ),
+  { secret: process.env.JWT_SECRET }
+)
+
+export const GET = authenticatedHandler
+```
+
+#### Configuration
+
+```typescript
+withRoles(handler, {
+  // Required roles (any match = authorized)
+  roles: ['admin', 'moderator'],
+
+  // Required permissions (all must match)
+  permissions: ['read', 'write'],
+
+  // Custom role extraction
+  getUserRoles: (user) => user.roles || [],
+
+  // Custom permission extraction
+  getUserPermissions: (user) => user.permissions || [],
+
+  // Custom authorization logic
+  authorize: async (user, req) => {
+    // Return true if authorized, false otherwise
+    return user.subscriptionTier === 'pro'
+  },
+})
+```
+
+### Combined Authentication
+
+Use `withAuth` for flexible multi-strategy authentication:
+
+```typescript
+import { withAuth } from 'nextjs-secure/auth'
+
+export const GET = withAuth(
+  async (req, ctx) => {
+    // Authenticated via any method
+    return Response.json({ user: ctx.user })
+  },
+  {
+    // Try JWT first
+    jwt: {
+      secret: process.env.JWT_SECRET,
+    },
+
+    // Fall back to API key
+    apiKey: {
+      validate: (key) => db.apiKeys.findUser(key),
+    },
+
+    // Fall back to session
+    session: {
+      validate: (id) => db.sessions.findUser(id),
+    },
+
+    // Optional RBAC
+    rbac: {
+      roles: ['user', 'admin'],
+    },
+
+    // Callbacks
+    onSuccess: async (req, user) => {
+      // Log successful auth
+      console.log(`Authenticated: ${user.id}`)
+    },
+
+    onError: (req, error) => {
+      // Custom error response
+      return Response.json({ error: error.message }, { status: error.status })
+    },
+  }
+)
+```
+
+### Optional Authentication
+
+For routes that work with or without authentication:
+
+```typescript
+import { withOptionalAuth } from 'nextjs-secure/auth'
+
+export const GET = withOptionalAuth(
+  async (req, ctx) => {
+    if (ctx.user) {
+      // Authenticated user
+      return Response.json({ user: ctx.user })
+    }
+    // Anonymous access
+    return Response.json({ guest: true })
+  },
+  {
+    jwt: { secret: process.env.JWT_SECRET },
+  }
+)
+```
+
+### JWT Utilities
+
+```typescript
+import { verifyJWT, decodeJWT, extractBearerToken } from 'nextjs-secure/auth'
+
+// Verify and decode JWT
+const { payload, error } = await verifyJWT(token, {
+  secret: process.env.JWT_SECRET,
+  issuer: 'myapp',
+})
+
+if (error) {
+  console.log(error.code) // 'expired_token', 'invalid_signature', etc.
+}
+
+// Decode without verification (for inspection only)
+const decoded = decodeJWT(token)
+// { header, payload, signature }
+
+// Extract token from Authorization header
+const token = extractBearerToken(req.headers.get('authorization'))
+// 'Bearer xxx' -> 'xxx'
+```
+
 ## Utilities
 
 ### Duration Parsing
@@ -857,14 +1139,23 @@ export const POST = withRateLimit(
   - [x] Memory store
   - [x] Redis store
   - [x] Upstash store
-- [ ] Authentication (v0.2.0)
-  - [ ] JWT validation
-  - [ ] Supabase provider
-  - [ ] NextAuth provider
-  - [ ] Clerk provider
-  - [ ] RBAC support
-- [ ] CSRF Protection (v0.3.0)
-- [ ] Security Headers (v0.4.0)
+- [x] CSRF Protection (v0.2.0)
+  - [x] Double submit cookie pattern
+  - [x] Token generation/validation
+  - [x] Configurable cookie settings
+- [x] Security Headers (v0.3.0)
+  - [x] Content-Security-Policy
+  - [x] Strict-Transport-Security
+  - [x] X-Frame-Options, X-Content-Type-Options
+  - [x] Permissions-Policy
+  - [x] COOP, COEP, CORP
+  - [x] Presets (strict, relaxed, api)
+- [x] Authentication (v0.4.0)
+  - [x] JWT validation (HS256, RS256, ES256)
+  - [x] API Key authentication
+  - [x] Session/Cookie authentication
+  - [x] Role-Based Access Control (RBAC)
+  - [x] Combined multi-strategy auth
 - [ ] Input Validation (v0.5.0)
 - [ ] Audit Logging (v0.6.0)
 

@@ -1,26 +1,53 @@
 /**
- * Authentication Middleware (Coming Soon)
+ * Authentication Middleware
  *
  * @example
  * ```typescript
- * import { withAuth } from 'next-secure/auth'
+ * import { withJWT, withAuth } from 'nextjs-secure/auth'
  *
- * export const GET = withAuth(
+ * // JWT authentication
+ * export const GET = withJWT(
  *   async (req, ctx) => {
  *     return Response.json({ user: ctx.user })
  *   },
- *   { roles: ['admin'] }
+ *   { secret: process.env.JWT_SECRET }
+ * )
+ *
+ * // Combined auth with RBAC
+ * export const POST = withAuth(
+ *   async (req, ctx) => {
+ *     return Response.json({ user: ctx.user })
+ *   },
+ *   {
+ *     jwt: { secret: process.env.JWT_SECRET },
+ *     rbac: { roles: ['admin'] }
+ *   }
  * )
  * ```
  *
  * @packageDocumentation
  */
 
-// Placeholder for auth middleware
-export function withAuth() {
-  throw new Error('Auth middleware coming soon in v0.2.0')
-}
+export {
+  withJWT,
+  withAPIKey,
+  withSession,
+  withAuth,
+  withRoles,
+  withOptionalAuth,
+} from './middleware'
 
-export function createAuthProvider() {
-  throw new Error('Auth providers coming soon in v0.2.0')
-}
+export { verifyJWT, decodeJWT, extractBearerToken } from './jwt'
+
+export type {
+  AuthUser,
+  AuthConfig,
+  AuthError,
+  AuthErrorCode,
+  JWTConfig,
+  JWTPayload,
+  APIKeyConfig,
+  SessionConfig,
+  RBACConfig,
+  AuthenticatedRequest,
+} from './types'
