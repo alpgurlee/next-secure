@@ -127,6 +127,101 @@ export type {
 } from './middleware/headers'
 
 // =============================================================================
+// Authentication
+// =============================================================================
+
+export {
+  withJWT,
+  withAPIKey,
+  withSession,
+  withAuth,
+  withRoles,
+  withOptionalAuth,
+  verifyJWT,
+  decodeJWT,
+  extractBearerToken,
+} from './middleware/auth'
+
+export type {
+  AuthUser,
+  AuthConfig,
+  AuthError,
+  AuthErrorCode,
+  JWTConfig,
+  JWTPayload,
+  APIKeyConfig,
+  SessionConfig,
+  RBACConfig,
+} from './middleware/auth'
+
+// =============================================================================
+// Input Validation
+// =============================================================================
+
+export {
+  // Middleware
+  withValidation,
+  withSanitization,
+  withXSSProtection,
+  withSQLProtection,
+  withContentType,
+  withFileValidation,
+  withSecureValidation,
+  // Schema validation
+  validate,
+  validateBody,
+  validateQuery,
+  validateRequest,
+  createValidator,
+  // XSS
+  sanitize,
+  sanitizeObject,
+  sanitizeFields,
+  escapeHtml,
+  stripHtml,
+  detectXSS,
+  // SQL
+  detectSQLInjection,
+  hasSQLInjection,
+  sanitizeSQLInput,
+  // Path
+  validatePath,
+  sanitizePath,
+  hasPathTraversal,
+  sanitizeFilename,
+  // Content-Type
+  validateContentType,
+  isJsonRequest,
+  isFormRequest,
+  MIME_TYPES,
+  // File
+  validateFile,
+  validateFiles,
+  detectFileType,
+  DANGEROUS_EXTENSIONS,
+} from './middleware/validation'
+
+export type {
+  ValidationError as InputValidationError,
+  ValidationResult,
+  ValidationConfig,
+  ValidatedContext,
+  SanitizeConfig,
+  SanitizeMode,
+  SQLDetection,
+  SQLProtectionConfig,
+  PathValidationConfig,
+  PathValidationResult,
+  ContentTypeConfig,
+  FileValidationConfig,
+  FileValidationError,
+  FileInfo,
+  FieldRule,
+  FieldType,
+  CustomSchema,
+} from './middleware/validation'
+
+// =============================================================================
 // Utilities
 // =============================================================================
 
@@ -155,4 +250,4 @@ export {
 /**
  * Package version
  */
-export const VERSION = '0.3.0'
+export const VERSION = '0.5.0'

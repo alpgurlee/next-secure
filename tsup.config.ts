@@ -7,6 +7,7 @@ export default defineConfig({
     auth: 'src/middleware/auth/index.ts',
     csrf: 'src/middleware/csrf/index.ts',
     headers: 'src/middleware/headers/index.ts',
+    validation: 'src/middleware/validation/index.ts',
   },
   format: ['cjs', 'esm'],
   dts: true,

@@ -1,6 +1,6 @@
 # Roadmap
 
-## v0.1.x - Rate Limiting (Current)
+## v0.1.x - Rate Limiting ✅
 
 ### Completed
 - [x] Sliding window algorithm
@@ -14,7 +14,7 @@
 - [x] Duration parsing utilities
 - [x] IP extraction utilities
 
-### Planned for v0.1.x
+### Future Enhancements
 - [ ] Leaky bucket algorithm
 - [ ] Multi-tier rate limiting (combine multiple limits)
 - [ ] Rate limit by cost (weighted requests)
@@ -22,198 +22,166 @@
 
 ---
 
-## v0.2.0 - Authentication Middleware
+## v0.2.0 - CSRF Protection ✅
 
-### JWT Validation
+### Completed
+- [x] Double submit cookie pattern
+- [x] Signed token validation (HMAC-SHA256)
+- [x] Token generation and validation
+- [x] Configurable cookie settings
+- [x] Header and body token support
+- [x] Skip conditions
+- [x] Custom error responses
+
+### Usage
 ```typescript
-import { withJWT } from 'nextjs-secure/auth'
+import { withCSRF, generateCSRF } from 'nextjs-secure/csrf'
 
-export const GET = withJWT(handler, {
-  secret: process.env.JWT_SECRET,
-  algorithms: ['HS256', 'RS256'],
-  issuer: 'https://myapp.com',
-  audience: 'api',
+// Generate token
+const { token, cookieHeader } = await generateCSRF()
+
+// Protect endpoint
+export const POST = withCSRF(handler, {
+  cookie: { name: '__csrf', httpOnly: true, secure: true },
+  headerName: 'x-csrf-token',
 })
 ```
 
-### Auth Provider Integration
+---
+
+## v0.3.0 - Security Headers ✅
+
+### Completed
+- [x] Content-Security-Policy builder
+- [x] Strict-Transport-Security
+- [x] X-Frame-Options
+- [x] X-Content-Type-Options
+- [x] Referrer-Policy
+- [x] Permissions-Policy
+- [x] Cross-Origin headers (CORP, COEP, COOP)
+- [x] Preset configurations (strict, relaxed, api)
+
+### Usage
 ```typescript
-import { withAuth } from 'nextjs-secure/auth'
+import { withSecurityHeaders } from 'nextjs-secure/headers'
 
-// NextAuth.js
-export const GET = withAuth(handler, {
-  provider: 'next-auth',
-})
+export const GET = withSecurityHeaders(handler, { preset: 'strict' })
+```
 
-// Supabase
-export const GET = withAuth(handler, {
-  provider: 'supabase',
-  supabaseUrl: process.env.SUPABASE_URL,
-  supabaseKey: process.env.SUPABASE_ANON_KEY,
-})
+---
 
-// Clerk
+## v0.4.0 - Authentication ✅
+
+### Completed
+- [x] JWT validation (HS256, RS256, ES256)
+- [x] Claims validation (exp, nbf, iss, aud)
+- [x] API Key authentication (header + query param)
+- [x] Session/Cookie authentication
+- [x] Role-Based Access Control (RBAC)
+- [x] Permission-based access control
+- [x] Combined multi-strategy auth (withAuth)
+- [x] Optional auth (withOptionalAuth)
+- [x] Custom token extraction
+- [x] Custom user mapping
+
+### Usage
+```typescript
+import { withJWT, withAPIKey, withAuth, withRoles } from 'nextjs-secure/auth'
+
+// JWT auth
+export const GET = withJWT(handler, { secret: process.env.JWT_SECRET })
+
+// API Key auth
+export const GET = withAPIKey(handler, { validate: (key) => db.findUser(key) })
+
+// Combined auth with RBAC
 export const GET = withAuth(handler, {
-  provider: 'clerk',
+  jwt: { secret: process.env.JWT_SECRET },
+  rbac: { roles: ['admin'] },
 })
 ```
 
-### Role-Based Access Control (RBAC)
-```typescript
-import { withRole } from 'nextjs-secure/auth'
-
-export const GET = withRole(handler, {
-  roles: ['admin', 'moderator'],
-  onUnauthorized: (req) => Response.json({ error: 'Forbidden' }, { status: 403 }),
-})
-```
-
-### Planned Features
-- [ ] JWT validation with JWKS support
+### Future Enhancements
+- [ ] JWKS (JSON Web Key Set) support
 - [ ] NextAuth.js provider
 - [ ] Supabase provider
 - [ ] Clerk provider
 - [ ] Auth0 provider
 - [ ] Firebase Auth provider
-- [ ] RBAC middleware
-- [ ] Permission-based access control
-- [ ] Session validation
-- [ ] API key authentication
 
 ---
 
-## v0.3.0 - CSRF Protection
+## v0.5.0 - Input Validation ✅
 
-### Double Submit Cookie
+### Completed
+- [x] Zod schema validation (compatible)
+- [x] Custom schema validation (built-in)
+- [x] Body/Query/Params validation
+- [x] XSS sanitization (escape, strip, allow-safe modes)
+- [x] XSS detection and blocking
+- [x] SQL injection detection (high/medium/low severity)
+- [x] SQL injection protection middleware
+- [x] Path traversal prevention
+- [x] Path/filename sanitization
+- [x] File upload validation (size, type, magic numbers)
+- [x] Content-Type validation
+- [x] Combined security middleware (withSecureValidation)
+
+### Usage
 ```typescript
-import { withCSRF } from 'nextjs-secure/csrf'
+import {
+  withValidation,
+  withSanitization,
+  withXSSProtection,
+  withSQLProtection,
+  sanitize,
+  detectXSS,
+  detectSQLInjection,
+  validatePath,
+  sanitizeFilename
+} from 'nextjs-secure/validation'
 
-export const POST = withCSRF(handler, {
-  cookie: {
-    name: '__csrf',
-    httpOnly: true,
-    secure: true,
-    sameSite: 'strict',
-  },
-  header: 'x-csrf-token',
-  ignoreMethods: ['GET', 'HEAD', 'OPTIONS'],
-})
-```
+// Schema validation (works with Zod or custom schemas)
+const schema = {
+  email: { type: 'email', required: true },
+  password: { type: 'string', minLength: 8 },
+  age: { type: 'number', min: 18 }
+}
 
-### Token Generation
-```typescript
-import { generateCSRFToken, validateCSRFToken } from 'nextjs-secure/csrf'
+export const POST = withValidation(handler, { body: schema })
 
-// In your form page
-const token = await generateCSRFToken()
-
-// In your API route
-const isValid = await validateCSRFToken(request)
-```
-
-### Planned Features
-- [ ] Double submit cookie pattern
-- [ ] Signed token validation
-- [ ] Origin/Referer validation
-- [ ] Custom token storage
-- [ ] Framework integration helpers
-
----
-
-## v0.4.0 - Security Headers
-
-### Preset Configurations
-```typescript
-import { withSecurityHeaders } from 'nextjs-secure/headers'
-
-// Use preset
-export const GET = withSecurityHeaders(handler, {
-  preset: 'strict', // 'strict' | 'relaxed' | 'api'
+// XSS sanitization middleware
+export const POST = withSanitization(handler, {
+  fields: ['content', 'bio'],
+  mode: 'escape', // 'escape' | 'strip' | 'allow-safe'
 })
 
-// Or customize
-export const GET = withSecurityHeaders(handler, {
-  contentSecurityPolicy: {
-    defaultSrc: ["'self'"],
-    scriptSrc: ["'self'", "'unsafe-inline'"],
-    styleSrc: ["'self'", "'unsafe-inline'"],
-    imgSrc: ["'self'", 'data:', 'https:'],
-  },
-  strictTransportSecurity: {
-    maxAge: 31536000,
-    includeSubDomains: true,
-    preload: true,
-  },
-  xFrameOptions: 'DENY',
-  xContentTypeOptions: 'nosniff',
-  referrerPolicy: 'strict-origin-when-cross-origin',
-  permissionsPolicy: {
-    camera: [],
-    microphone: [],
-    geolocation: [],
-  },
+// XSS protection (blocks malicious content)
+export const POST = withXSSProtection(handler)
+
+// SQL injection protection
+export const POST = withSQLProtection(handler, {
+  mode: 'block', // 'block' | 'detect'
 })
-```
-
-### Planned Features
-- [ ] Content-Security-Policy builder
-- [ ] Strict-Transport-Security
-- [ ] X-Frame-Options
-- [ ] X-Content-Type-Options
-- [ ] Referrer-Policy
-- [ ] Permissions-Policy
-- [ ] Cross-Origin headers (CORP, COEP, COOP)
-- [ ] Preset configurations (strict, relaxed, api)
-- [ ] Next.js middleware integration
-
----
-
-## v0.5.0 - Input Validation
-
-### Zod Integration
-```typescript
-import { withValidation } from 'nextjs-secure/validation'
-import { z } from 'zod'
-
-const CreateUserSchema = z.object({
-  email: z.string().email(),
-  password: z.string().min(8),
-  name: z.string().min(2).max(50),
-})
-
-export const POST = withValidation(handler, {
-  body: CreateUserSchema,
-  query: z.object({
-    redirect: z.string().url().optional(),
-  }),
-})
-```
-
-### XSS Sanitization
-```typescript
-import { sanitize, withSanitization } from 'nextjs-secure/validation'
 
 // Manual sanitization
 const cleanHtml = sanitize(userInput, {
+  mode: 'allow-safe',
   allowedTags: ['b', 'i', 'em', 'strong'],
-  allowedAttributes: {},
 })
 
-// Automatic sanitization middleware
-export const POST = withSanitization(handler, {
-  fields: ['content', 'bio', 'description'],
-  mode: 'escape', // 'escape' | 'strip' | 'sanitize'
+// File validation
+export const POST = withFileValidation(handler, {
+  maxSize: 5 * 1024 * 1024, // 5MB
+  allowedTypes: ['image/jpeg', 'image/png'],
+  validateMagicNumbers: true,
 })
 ```
 
-### Planned Features
-- [ ] Zod schema validation
-- [ ] Body/Query/Params validation
-- [ ] XSS sanitization (DOMPurify-like)
-- [ ] SQL injection detection
-- [ ] Path traversal prevention
-- [ ] File upload validation
-- [ ] Content-Type validation
+### Future Enhancements
+- [ ] Rate limit per field (brute force protection)
+- [ ] Content-based throttling
+- [ ] GraphQL query validation
 
 ---
 

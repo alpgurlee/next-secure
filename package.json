@@ -1,6 +1,6 @@
 {
   "name": "nextjs-secure",
-  "version": "0.3.0",
+  "version": "0.5.0",
   "description": "Production-ready security middleware for Next.js 13+ App Router",
   "author": "Alp Eren Gürle",
   "license": "MIT",
@@ -21,6 +21,9 @@
     "authentication",
     "csrf",
     "xss",
+    "validation",
+    "sanitization",
+    "sql-injection",
     "api"
   ],
   "type": "module",
@@ -76,6 +79,16 @@
       "require": {
         "types": "./dist/headers.d.cts",
         "default": "./dist/headers.cjs"
+      }
+    },
+    "./validation": {
+      "import": {
+        "types": "./dist/validation.d.ts",
+        "default": "./dist/validation.js"
+      },
+      "require": {
+        "types": "./dist/validation.d.cts",
+        "default": "./dist/validation.cjs"
       }
     }
   },
