@@ -47,6 +47,11 @@ pnpm add nextjs-secure
   - [Storage Backends](#storage-backends)
   - [Custom Identifiers](#custom-identifiers)
   - [Response Customization](#response-customization)
+- [CSRF Protection](#csrf-protection)
+  - [Basic Setup](#basic-setup)
+  - [Client-Side Usage](#client-side-usage)
+  - [Configuration](#configuration-1)
+  - [Manual Validation](#manual-validation)
 - [Utilities](#utilities)
 - [API Reference](#api-reference)
 - [Examples](#examples)
@@ -385,6 +390,129 @@ export async function GET(request: NextRequest) {
   // Your logic here
   return Response.json({ data: '...' }, { headers })
 }
+```
+
+## CSRF Protection
+
+Protect your forms against Cross-Site Request Forgery attacks using the double submit cookie pattern.
+
+### Basic Setup
+
+```typescript
+// app/api/csrf/route.ts - Token endpoint
+import { generateCSRF } from 'nextjs-secure/csrf'
+
+export async function GET() {
+  const { token, cookieHeader } = await generateCSRF()
+
+  return Response.json(
+    { csrfToken: token },
+    { headers: { 'Set-Cookie': cookieHeader } }
+  )
+}
+```
+
+```typescript
+// app/api/submit/route.ts - Protected endpoint
+import { withCSRF } from 'nextjs-secure/csrf'
+
+export const POST = withCSRF(async (req) => {
+  const data = await req.json()
+  // Safe to process - CSRF validated
+  return Response.json({ success: true })
+})
+```
+
+### Client-Side Usage
+
+```typescript
+// Fetch token on page load
+const { csrfToken } = await fetch('/api/csrf').then(r => r.json())
+
+// Include in form submissions
+fetch('/api/submit', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'x-csrf-token': csrfToken  // Token in header
+  },
+  body: JSON.stringify({ data: '...' })
+})
+```
+
+Or include in form body:
+
+```typescript
+fetch('/api/submit', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    _csrf: csrfToken,  // Token in body
+    data: '...'
+  })
+})
+```
+
+### Configuration
+
+```typescript
+import { withCSRF } from 'nextjs-secure/csrf'
+
+export const POST = withCSRF(handler, {
+  // Cookie settings
+  cookie: {
+    name: '__csrf',        // Cookie name
+    httpOnly: true,        // Not accessible via JS
+    secure: true,          // HTTPS only
+    sameSite: 'strict',    // Strict same-site policy
+    maxAge: 86400          // 24 hours
+  },
+
+  // Where to look for token
+  headerName: 'x-csrf-token',  // Header name
+  fieldName: '_csrf',          // Body field name
+
+  // Token settings
+  secret: process.env.CSRF_SECRET,  // Signing secret
+  tokenLength: 32,                   // Token size in bytes
+
+  // Protected methods (default: POST, PUT, PATCH, DELETE)
+  protectedMethods: ['POST', 'PUT', 'PATCH', 'DELETE'],
+
+  // Skip protection conditionally
+  skip: (req) => req.headers.get('x-api-key') === 'trusted',
+
+  // Custom error response
+  onError: (req, reason) => {
+    return new Response(`CSRF failed: ${reason}`, { status: 403 })
+  }
+})
+```
+
+### Manual Validation
+
+```typescript
+import { validateCSRF } from 'nextjs-secure/csrf'
+
+export async function POST(req) {
+  const result = await validateCSRF(req)
+
+  if (!result.valid) {
+    console.log('CSRF failed:', result.reason)
+    // reason: 'missing_cookie' | 'invalid_cookie' | 'missing_token' | 'token_mismatch'
+    return Response.json({ error: result.reason }, { status: 403 })
+  }
+
+  // Continue processing
+}
+```
+
+### Environment Variable
+
+Set `CSRF_SECRET` in your environment:
+
+```env
+CSRF_SECRET=your-secret-key-min-32-chars-recommended
 ```
 
 ## Utilities

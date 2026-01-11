@@ -81,6 +81,25 @@ export {
 } from './middleware/rate-limit'
 
 // =============================================================================
+// CSRF Protection
+// =============================================================================
+
+export {
+  withCSRF,
+  generateCSRF,
+  validateCSRF,
+  createToken as createCSRFToken,
+  verifyToken as verifyCSRFToken,
+  tokensMatch,
+} from './middleware/csrf'
+
+export type {
+  CSRFConfig,
+  CSRFCookieOptions,
+  CSRFToken,
+} from './middleware/csrf'
+
+// =============================================================================
 // Utilities
 // =============================================================================
 
@@ -109,4 +128,4 @@ export {
 /**
  * Package version
  */
-export const VERSION = '0.1.0'
+export const VERSION = '0.2.0'

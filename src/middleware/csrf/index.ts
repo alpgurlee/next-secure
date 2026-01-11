@@ -1,34 +1,28 @@
 /**
- * CSRF Protection Middleware (Coming Soon)
+ * CSRF Protection Middleware
  *
  * @example
  * ```typescript
- * import { withCsrf, generateCsrfToken } from 'next-secure/csrf'
+ * import { withCSRF, generateCSRF } from 'nextjs-secure/csrf'
  *
- * // Generate token
+ * // GET: Generate token for forms
  * export async function GET() {
- *   const token = await generateCsrfToken()
- *   return Response.json({ csrfToken: token })
+ *   const { token, cookieHeader } = await generateCSRF()
+ *   return Response.json(
+ *     { csrfToken: token },
+ *     { headers: { 'Set-Cookie': cookieHeader } }
+ *   )
  * }
  *
- * // Validate token
- * export const POST = withCsrf(async (req) => {
- *   return Response.json({ ok: true })
+ * // POST: Protected endpoint
+ * export const POST = withCSRF(async (req) => {
+ *   return Response.json({ success: true })
  * })
  * ```
  *
  * @packageDocumentation
  */
 
-// Placeholder for CSRF middleware
-export function withCsrf() {
-  throw new Error('CSRF middleware coming soon in v0.2.0')
-}
-
-export function generateCsrfToken() {
-  throw new Error('CSRF middleware coming soon in v0.2.0')
-}
-
-export function validateCsrfToken() {
-  throw new Error('CSRF middleware coming soon in v0.2.0')
-}
+export { withCSRF, generateCSRF, validateCSRF } from './middleware'
+export { createToken, verifyToken, tokensMatch } from './token'
+export type { CSRFConfig, CSRFCookieOptions, CSRFToken } from './types'
