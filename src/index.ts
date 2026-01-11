@@ -100,6 +100,33 @@ export type {
 } from './middleware/csrf'
 
 // =============================================================================
+// Security Headers
+// =============================================================================
+
+export {
+  withSecurityHeaders,
+  createSecurityHeaders,
+  createSecurityHeadersObject,
+  buildCSP,
+  buildHSTS,
+  buildPermissionsPolicy,
+  getPreset,
+  PRESET_STRICT,
+  PRESET_RELAXED,
+  PRESET_API,
+} from './middleware/headers'
+
+export type {
+  ContentSecurityPolicy,
+  StrictTransportSecurity,
+  PermissionsPolicy,
+  SecurityHeadersConfig,
+  SecurityHeadersPreset,
+  XFrameOptions,
+  ReferrerPolicy,
+} from './middleware/headers'
+
+// =============================================================================
 // Utilities
 // =============================================================================
 
@@ -128,4 +155,4 @@ export {
 /**
  * Package version
  */
-export const VERSION = '0.2.0'
+export const VERSION = '0.3.0'

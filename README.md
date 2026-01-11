@@ -52,6 +52,10 @@ pnpm add nextjs-secure
   - [Client-Side Usage](#client-side-usage)
   - [Configuration](#configuration-1)
   - [Manual Validation](#manual-validation)
+- [Security Headers](#security-headers)
+  - [Quick Start](#quick-start-1)
+  - [Presets](#presets)
+  - [Custom Configuration](#custom-configuration)
 - [Utilities](#utilities)
 - [API Reference](#api-reference)
 - [Examples](#examples)
@@ -514,6 +518,117 @@ Set `CSRF_SECRET` in your environment:
 ```env
 CSRF_SECRET=your-secret-key-min-32-chars-recommended
 ```
+
+## Security Headers
+
+Add security headers to your responses with pre-configured presets or custom configuration.
+
+### Quick Start
+
+```typescript
+import { withSecurityHeaders } from 'nextjs-secure/headers'
+
+// Use strict preset (default)
+export const GET = withSecurityHeaders(async (req) => {
+  return Response.json({ data: 'protected' })
+})
+```
+
+### Presets
+
+Three presets available: `strict`, `relaxed`, `api`
+
+```typescript
+// Strict: Maximum security (default)
+export const GET = withSecurityHeaders(handler, { preset: 'strict' })
+
+// Relaxed: Development-friendly, allows inline scripts
+export const GET = withSecurityHeaders(handler, { preset: 'relaxed' })
+
+// API: Optimized for JSON APIs
+export const GET = withSecurityHeaders(handler, { preset: 'api' })
+```
+
+### Custom Configuration
+
+```typescript
+import { withSecurityHeaders } from 'nextjs-secure/headers'
+
+export const GET = withSecurityHeaders(handler, {
+  config: {
+    // Content-Security-Policy
+    contentSecurityPolicy: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'", "'unsafe-inline'"],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      imgSrc: ["'self'", 'data:', 'https:'],
+    },
+
+    // Strict-Transport-Security
+    strictTransportSecurity: {
+      maxAge: 31536000,
+      includeSubDomains: true,
+      preload: true,
+    },
+
+    // Other headers
+    xFrameOptions: 'DENY',           // or 'SAMEORIGIN'
+    xContentTypeOptions: true,        // X-Content-Type-Options: nosniff
+    referrerPolicy: 'strict-origin-when-cross-origin',
+
+    // Cross-Origin headers
+    crossOriginOpenerPolicy: 'same-origin',
+    crossOriginEmbedderPolicy: 'require-corp',
+    crossOriginResourcePolicy: 'same-origin',
+
+    // Permissions-Policy (disable features)
+    permissionsPolicy: {
+      camera: [],
+      microphone: [],
+      geolocation: [],
+    },
+  }
+})
+```
+
+### Disable Specific Headers
+
+```typescript
+export const GET = withSecurityHeaders(handler, {
+  config: {
+    contentSecurityPolicy: false,  // Disable CSP
+    xFrameOptions: false,          // Disable X-Frame-Options
+  }
+})
+```
+
+### Manual Header Creation
+
+```typescript
+import { createSecurityHeaders } from 'nextjs-secure/headers'
+
+export async function GET() {
+  const headers = createSecurityHeaders({ preset: 'api' })
+
+  return new Response(JSON.stringify({ ok: true }), {
+    headers,
+  })
+}
+```
+
+### Available Headers
+
+| Header | Description |
+|--------|-------------|
+| Content-Security-Policy | Controls resources the page can load |
+| Strict-Transport-Security | Forces HTTPS connections |
+| X-Frame-Options | Prevents clickjacking |
+| X-Content-Type-Options | Prevents MIME sniffing |
+| Referrer-Policy | Controls referrer information |
+| Permissions-Policy | Disables browser features |
+| Cross-Origin-Opener-Policy | Isolates browsing context |
+| Cross-Origin-Embedder-Policy | Controls embedding |
+| Cross-Origin-Resource-Policy | Controls resource sharing |
 
 ## Utilities
 

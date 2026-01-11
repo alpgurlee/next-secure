@@ -1,40 +1,57 @@
 /**
- * Security Headers Middleware (Coming Soon)
+ * Security Headers Middleware
  *
  * @example
  * ```typescript
- * // next.config.js
- * import { securityHeaders } from 'next-secure/headers'
+ * import { withSecurityHeaders } from 'nextjs-secure/headers'
  *
- * export default {
- *   async headers() {
- *     return [
- *       {
- *         source: '/:path*',
- *         headers: securityHeaders({
- *           contentSecurityPolicy: {
- *             directives: {
- *               defaultSrc: ["'self'"],
- *               scriptSrc: ["'self'", "'unsafe-inline'"],
- *             }
- *           },
- *           strictTransportSecurity: true,
- *           xFrameOptions: 'DENY',
- *         })
- *       }
- *     ]
+ * // Use strict preset (default)
+ * export const GET = withSecurityHeaders(handler)
+ *
+ * // Use specific preset
+ * export const GET = withSecurityHeaders(handler, { preset: 'api' })
+ *
+ * // Custom configuration
+ * export const GET = withSecurityHeaders(handler, {
+ *   config: {
+ *     xFrameOptions: 'SAMEORIGIN',
+ *     contentSecurityPolicy: {
+ *       defaultSrc: ["'self'"],
+ *       scriptSrc: ["'self'", "'unsafe-inline'"]
+ *     }
  *   }
- * }
+ * })
  * ```
  *
  * @packageDocumentation
  */
 
-// Placeholder for security headers
-export function securityHeaders() {
-  throw new Error('Security headers coming soon in v0.2.0')
-}
+export {
+  withSecurityHeaders,
+  createSecurityHeaders,
+  createSecurityHeadersObject,
+} from './middleware'
 
-export function createCsp() {
-  throw new Error('Security headers coming soon in v0.2.0')
-}
+export {
+  buildCSP,
+  buildHSTS,
+  buildPermissionsPolicy,
+  buildHeaders,
+  getPreset,
+  PRESET_STRICT,
+  PRESET_RELAXED,
+  PRESET_API,
+} from './builder'
+
+export type {
+  ContentSecurityPolicy,
+  StrictTransportSecurity,
+  PermissionsPolicy,
+  SecurityHeadersConfig,
+  SecurityHeadersPreset,
+  XFrameOptions,
+  ReferrerPolicy,
+  CrossOriginOpenerPolicy,
+  CrossOriginEmbedderPolicy,
+  CrossOriginResourcePolicy,
+} from './types'
