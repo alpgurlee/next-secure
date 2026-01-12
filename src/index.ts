@@ -222,6 +222,70 @@ export type {
 } from './middleware/validation'
 
 // =============================================================================
+// Audit Logging
+// =============================================================================
+
+export {
+  // Middleware
+  withAuditLog,
+  createAuditMiddleware,
+  withRequestId,
+  withTiming,
+  // Stores
+  MemoryStore as AuditMemoryStore,
+  createMemoryStore as createAuditMemoryStore,
+  ConsoleStore,
+  createConsoleStore,
+  ExternalStore,
+  createExternalStore,
+  createDatadogStore,
+  MultiStore,
+  createMultiStore,
+  // Formatters
+  JSONFormatter,
+  TextFormatter,
+  CLFFormatter,
+  StructuredFormatter,
+  createJSONFormatter,
+  createTextFormatter,
+  createCLFFormatter,
+  createStructuredFormatter,
+  // Redaction
+  DEFAULT_PII_FIELDS,
+  mask,
+  redactObject,
+  createRedactor,
+  redactHeaders,
+  redactQuery,
+  redactEmail,
+  redactCreditCard,
+  redactPhone,
+  redactIP,
+  // Security Events
+  SecurityEventTracker,
+  createSecurityTracker,
+  trackSecurityEvent,
+} from './middleware/audit'
+
+export type {
+  LogLevel,
+  SecurityEventType,
+  LogEntry,
+  RequestLogEntry,
+  SecurityEventEntry,
+  AuditLogEntry,
+  LogStore,
+  LogQueryOptions,
+  LogFormatter,
+  PIIConfig,
+  AuditConfig,
+  SecurityEventConfig,
+  ConsoleStoreOptions,
+  MemoryStoreOptions as AuditMemoryStoreOptions,
+  ExternalStoreOptions,
+} from './middleware/audit'
+
+// =============================================================================
 // Utilities
 // =============================================================================
 
@@ -250,4 +314,4 @@ export {
 /**
  * Package version
  */
-export const VERSION = '0.5.0'
+export const VERSION = '0.6.0'

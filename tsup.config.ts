@@ -8,6 +8,7 @@ export default defineConfig({
     csrf: 'src/middleware/csrf/index.ts',
     headers: 'src/middleware/headers/index.ts',
     validation: 'src/middleware/validation/index.ts',
+    audit: 'src/middleware/audit/index.ts',
   },
   format: ['cjs', 'esm'],
   dts: true,

@@ -1,74 +1,346 @@
-# 🔐 next-secure - Development Plan
+# nextjs-secure - Development Plan
 
 > Production-ready security middleware for Next.js 13+ App Router
 
-## 📋 Project Overview
+## Project Overview
 
 **Goal:** Provide Next.js developers with enterprise-grade security out of the box. One `npm install` for complete API security.
 
-**Tagline:** *"Security middleware for Next.js that just works"*
+**Package Name:** `nextjs-secure`
 
-**Target:** 1000+ GitHub stars, 10k+ weekly npm downloads
+**Version:** 0.6.0
 
----
-
-## 🎯 Core Features
-
-### 1. Rate Limiting ⭐ (Priority 1)
-- Sliding window algorithm
-- Token bucket algorithm
-- IP-based and User-based limiting
-- Multiple stores: Memory, Redis, Upstash
-- Edge Runtime compatible
-- Customizable responses
-
-### 2. Authentication Middleware
-- JWT validation (jose library)
-- Built-in providers: Supabase, NextAuth, Clerk
-- Custom provider support
-- Role-based access control (RBAC)
-- Permission-based access control
-
-### 3. Audit Logging
-- Structured JSON logging
-- Async/non-blocking
-- Multiple adapters: Console, File, Database
-- PII filtering
-- Request/Response logging
-
-### 4. CSRF Protection
-- Token generation
-- Double submit cookie pattern
-- Automatic validation
-
-### 5. Security Headers
-- Content-Security-Policy
-- Strict-Transport-Security
-- X-Frame-Options
-- X-Content-Type-Options
-- Referrer-Policy
-
-### 6. Input Validation
-- Zod integration
-- XSS sanitization
-- Request body validation
-
-### 7. Protected Fields
-- Whitelist-based filtering
-- Mass assignment prevention
+**Status:** All core features complete
 
 ---
 
-## 🏗️ API Design
+## Completed Features
 
-### Approach 1: Functional Composition
+### v0.1.x - Rate Limiting
+
+| Feature | Status | Description |
+|---------|--------|-------------|
+| Sliding Window Algorithm | Done | Accurate rate limiting with smooth distribution |
+| Fixed Window Algorithm | Done | Simple time-based rate limiting |
+| Token Bucket Algorithm | Done | Burst-friendly rate limiting |
+| Memory Store | Done | In-memory with LRU eviction |
+| Redis Store | Done | ioredis compatible for production |
+| Upstash Store | Done | Edge/Serverless ready |
+| Custom Identifiers | Done | IP, API key, user ID, composite |
+| Response Customization | Done | onLimit, skip, headers |
+| Duration Parsing | Done | Human-readable durations ('15m', '1h') |
+| IP Extraction | Done | x-forwarded-for, x-real-ip support |
+
+### v0.2.0 - CSRF Protection
+
+| Feature | Status | Description |
+|---------|--------|-------------|
+| Double Submit Cookie | Done | Secure CSRF pattern |
+| HMAC-SHA256 Signing | Done | Cryptographic token validation |
+| Token Generation | Done | Secure random tokens |
+| Cookie Configuration | Done | httpOnly, secure, sameSite options |
+| Header/Body Support | Done | Flexible token extraction |
+| Skip Conditions | Done | Conditional CSRF checks |
+
+### v0.3.0 - Security Headers
+
+| Feature | Status | Description |
+|---------|--------|-------------|
+| CSP Builder | Done | Content-Security-Policy configuration |
+| HSTS | Done | Strict-Transport-Security |
+| X-Frame-Options | Done | Clickjacking protection |
+| X-Content-Type-Options | Done | MIME type sniffing protection |
+| Referrer-Policy | Done | Referrer information control |
+| Permissions-Policy | Done | Feature policy control |
+| Cross-Origin Headers | Done | CORP, COEP, COOP support |
+| Preset Configurations | Done | strict, relaxed, api presets |
+
+### v0.4.0 - Authentication
+
+| Feature | Status | Description |
+|---------|--------|-------------|
+| JWT Validation | Done | HS256, RS256, ES256 support |
+| Claims Validation | Done | exp, nbf, iss, aud verification |
+| API Key Auth | Done | Header and query parameter |
+| Session Auth | Done | Cookie-based authentication |
+| RBAC | Done | Role-Based Access Control |
+| Permission ACL | Done | Fine-grained permissions |
+| Multi-Strategy | Done | Combined auth (withAuth) |
+| Optional Auth | Done | withOptionalAuth middleware |
+
+### v0.5.0 - Input Validation
+
+| Feature | Status | Description |
+|---------|--------|-------------|
+| Schema Validation | Done | Zod compatible + built-in |
+| Body/Query/Params | Done | Full request validation |
+| XSS Sanitization | Done | escape, strip, allow-safe modes |
+| XSS Detection | Done | Pattern-based blocking |
+| SQL Injection | Done | Detection and protection |
+| Path Traversal | Done | Directory traversal prevention |
+| File Validation | Done | Size, type, magic numbers |
+| Content-Type | Done | Request validation |
+
+### v0.6.0 - Audit Logging
+
+| Feature | Status | Description |
+|---------|--------|-------------|
+| Request Logging | Done | withAuditLog middleware |
+| Security Events | Done | Auth, rate limit, XSS tracking |
+| Memory Store | Done | In-memory with LRU eviction |
+| Console Store | Done | Colorized console output |
+| External Store | Done | HTTP/webhook integration |
+| Multi Store | Done | Fan-out to multiple stores |
+| PII Redaction | Done | mask, hash, remove modes |
+| Log Formatters | Done | JSON, Text, CLF, Structured |
+| Request ID | Done | withRequestId middleware |
+| Response Timing | Done | withTiming middleware |
+| Datadog Integration | Done | createDatadogStore helper |
+
+---
+
+## Architecture
+
+### Module Structure
+
+```
+src/
+├── core/
+│   ├── types.ts           # Core TypeScript types
+│   └── errors.ts          # Custom error classes
+│
+├── middleware/
+│   ├── rate-limit/        # Rate limiting module
+│   │   ├── index.ts       # Main exports
+│   │   ├── types.ts       # Types and interfaces
+│   │   ├── algorithms/    # Rate limit algorithms
+│   │   │   ├── sliding-window.ts
+│   │   │   ├── fixed-window.ts
+│   │   │   └── token-bucket.ts
+│   │   └── stores/        # Storage backends
+│   │       ├── memory.ts
+│   │       ├── redis.ts
+│   │       └── upstash.ts
+│   │
+│   ├── csrf/              # CSRF protection
+│   │   ├── index.ts
+│   │   └── types.ts
+│   │
+│   ├── headers/           # Security headers
+│   │   ├── index.ts
+│   │   └── types.ts
+│   │
+│   ├── auth/              # Authentication
+│   │   ├── index.ts
+│   │   ├── types.ts
+│   │   ├── jwt.ts
+│   │   ├── api-key.ts
+│   │   ├── session.ts
+│   │   └── rbac.ts
+│   │
+│   ├── validation/        # Input validation
+│   │   ├── index.ts
+│   │   ├── types.ts
+│   │   ├── schema.ts
+│   │   ├── sanitize.ts
+│   │   ├── xss.ts
+│   │   ├── sql.ts
+│   │   ├── path.ts
+│   │   └── file.ts
+│   │
+│   └── audit/             # Audit logging
+│       ├── index.ts
+│       ├── types.ts
+│       ├── middleware.ts
+│       ├── events.ts
+│       ├── redaction.ts
+│       ├── formatters.ts
+│       └── stores/
+│           ├── memory.ts
+│           ├── console.ts
+│           ├── external.ts
+│           └── multi.ts
+│
+├── utils/
+│   ├── ip.ts              # IP extraction utilities
+│   └── time.ts            # Duration parsing
+│
+└── index.ts               # Main entry point
+```
+
+### Build Configuration
+
+- **Build Tool:** tsup
+- **Output:** ESM + CJS dual export
+- **Type Definitions:** .d.ts and .d.cts
+- **Target:** ES2020
+- **Tree Shaking:** Enabled
+
+### Module Entry Points
+
 ```typescript
-import { withAuth, withRateLimit } from 'next-secure'
+// Main entry
+import { withRateLimit, withCSRF, withAuth } from 'nextjs-secure'
+
+// Individual modules (tree-shaking)
+import { withRateLimit } from 'nextjs-secure/rate-limit'
+import { withCSRF } from 'nextjs-secure/csrf'
+import { withSecurityHeaders } from 'nextjs-secure/headers'
+import { withJWT, withAuth } from 'nextjs-secure/auth'
+import { withValidation, withXSSProtection } from 'nextjs-secure/validation'
+import { withAuditLog, createSecurityTracker } from 'nextjs-secure/audit'
+```
+
+---
+
+## Technical Specifications
+
+### Runtime Support
+
+| Environment | Support |
+|-------------|---------|
+| Node.js 18+ | Full |
+| Edge Runtime | Full |
+| Cloudflare Workers | Full |
+| Vercel Edge | Full |
+| AWS Lambda | Full |
+
+### Dependencies
+
+**Production:**
+- `jose` - JWT handling (peer dependency, optional)
+
+**Peer Dependencies:**
+- `next` >= 13.0.0
+
+**Optional:**
+- `zod` - Schema validation
+- `@upstash/redis` - Upstash store
+- `ioredis` - Redis store
+
+### Type Safety
+
+- Full TypeScript support
+- Generic handlers for typed context
+- Strict mode enabled
+- Complete JSDoc documentation
+
+---
+
+## Testing
+
+### Test Framework
+
+- **Runner:** Vitest
+- **Coverage:** c8
+- **Assertions:** Vitest built-in
+
+### Test Statistics
+
+| Category | Tests |
+|----------|-------|
+| Rate Limiting | ~100 |
+| CSRF | ~30 |
+| Security Headers | ~50 |
+| Authentication | ~80 |
+| Input Validation | ~120 |
+| Audit Logging | ~90 |
+| **Total** | **~470** |
+
+### Running Tests
+
+```bash
+# Run all tests
+npm test
+
+# Run with coverage
+npm run test:coverage
+
+# Run specific module
+npm test -- --grep "rate-limit"
+
+# Watch mode
+npm run test:watch
+```
+
+---
+
+## Future Roadmap (v1.0+)
+
+### Bot Detection (v0.7.0)
+
+| Feature | Priority | Description |
+|---------|----------|-------------|
+| User-Agent Analysis | High | Detect known bot patterns |
+| Behavior Analysis | Medium | Request timing and patterns |
+| Honeypot Fields | High | Hidden form fields for bots |
+| CAPTCHA Integration | Medium | reCAPTCHA, hCaptcha support |
+| Fingerprinting | Low | Browser fingerprint detection |
+
+### API Security (v0.8.0)
+
+| Feature | Priority | Description |
+|---------|----------|-------------|
+| Request Signing | High | HMAC request signatures |
+| Replay Prevention | High | Nonce-based replay attacks |
+| Timestamp Validation | High | Request freshness checks |
+| API Versioning | Medium | Version header management |
+| Request Validation | Medium | Schema-based request signing |
+
+### Geo-blocking (v0.9.0)
+
+| Feature | Priority | Description |
+|---------|----------|-------------|
+| Country Blocking | High | Block/allow by country code |
+| IP Reputation | Medium | Known malicious IP detection |
+| VPN Detection | Medium | Detect VPN/proxy usage |
+| Geo Headers | Low | Add geo info to requests |
+| Region-based Rules | Medium | Different rules per region |
+
+### DDoS Protection (v1.0.0)
+
+| Feature | Priority | Description |
+|---------|----------|-------------|
+| Adaptive Rate Limiting | High | Dynamic limits based on load |
+| Request Fingerprinting | High | Identify attack patterns |
+| Auto IP Blocking | Medium | Automatic threat response |
+| Traffic Analysis | Medium | Real-time traffic monitoring |
+| Circuit Breaker | High | Prevent cascade failures |
+
+### Provider Integrations (v1.1.0)
+
+| Provider | Type | Description |
+|----------|------|-------------|
+| NextAuth.js | Auth | Session-based authentication |
+| Clerk | Auth | Clerk session support |
+| Auth0 | Auth | Auth0 JWT validation |
+| Supabase | Auth | Supabase session support |
+| Firebase Auth | Auth | Firebase token validation |
+| JWKS | Auth | JSON Web Key Set support |
+
+### Observability (v1.2.0)
+
+| Integration | Type | Description |
+|-------------|------|-------------|
+| Sentry | Error | Error tracking and alerting |
+| CloudWatch | Logging | AWS logging integration |
+| Elasticsearch | Logging | Log aggregation |
+| Prometheus | Metrics | Metrics export |
+| OpenTelemetry | Tracing | Distributed tracing |
+
+---
+
+## API Design Patterns
+
+### Higher-Order Function Composition
+
+```typescript
+import { withAuth, withRateLimit } from 'nextjs-secure'
 
 export const GET = withAuth(
   withRateLimit(
     async (req, ctx) => {
-      return Response.json({ data: [] })
+      return Response.json({ data: ctx.user })
     },
     { limit: 100, window: '15m' }
   ),
@@ -76,26 +348,28 @@ export const GET = withAuth(
 )
 ```
 
-### Approach 2: Builder Pattern
-```typescript
-import { secure } from 'next-secure'
+### Middleware Stacking
 
-export const GET = secure()
-  .rateLimit({ limit: 100, window: '15m' })
-  .auth({ roles: ['admin'] })
-  .audit({ action: 'users.list' })
-  .handle(async (req, ctx) => {
-    return Response.json({ users: [] })
-  })
+```typescript
+import { compose } from 'nextjs-secure'
+
+export const GET = compose(
+  withRateLimit({ limit: 100 }),
+  withAuth({ roles: ['admin'] }),
+  withAuditLog({ store: memoryStore }),
+  handler
+)
 ```
 
-### Approach 3: Config-based
-```typescript
-import { createHandler } from 'next-secure'
+### Configuration-Based
 
-export const GET = createHandler({
+```typescript
+import { createSecureHandler } from 'nextjs-secure'
+
+export const GET = createSecureHandler({
   rateLimit: { limit: 100, window: '15m' },
   auth: { roles: ['admin'] },
+  audit: { enabled: true },
   handler: async (req, ctx) => {
     return Response.json({ users: [] })
   }
@@ -104,293 +378,50 @@ export const GET = createHandler({
 
 ---
 
-## 📁 Project Structure
+## Performance
 
-```
-next-secure/
-├── src/
-│   ├── core/
-│   │   ├── handler.ts
-│   │   ├── context.ts
-│   │   ├── errors.ts
-│   │   └── types.ts
-│   │
-│   ├── middleware/
-│   │   ├── rate-limit/
-│   │   │   ├── index.ts
-│   │   │   ├── types.ts
-│   │   │   ├── algorithms/
-│   │   │   │   ├── sliding-window.ts
-│   │   │   │   ├── fixed-window.ts
-│   │   │   │   └── token-bucket.ts
-│   │   │   └── stores/
-│   │   │       ├── memory.ts
-│   │   │       ├── redis.ts
-│   │   │       └── upstash.ts
-│   │   │
-│   │   ├── auth/
-│   │   │   ├── index.ts
-│   │   │   ├── jwt.ts
-│   │   │   └── providers/
-│   │   │       ├── supabase.ts
-│   │   │       ├── next-auth.ts
-│   │   │       ├── clerk.ts
-│   │   │       └── custom.ts
-│   │   │
-│   │   ├── csrf/
-│   │   │   └── index.ts
-│   │   │
-│   │   ├── headers/
-│   │   │   └── index.ts
-│   │   │
-│   │   └── validation/
-│   │       ├── index.ts
-│   │       └── sanitize.ts
-│   │
-│   ├── logging/
-│   │   ├── audit.ts
-│   │   └── adapters/
-│   │       ├── console.ts
-│   │       ├── file.ts
-│   │       └── database.ts
-│   │
-│   ├── utils/
-│   │   ├── protected-fields.ts
-│   │   ├── ip.ts
-│   │   ├── time.ts
-│   │   └── headers.ts
-│   │
-│   └── index.ts
-│
-├── tests/
-│   ├── unit/
-│   ├── integration/
-│   └── e2e/
-│
-├── examples/
-│   ├── basic/
-│   ├── with-supabase/
-│   ├── with-prisma/
-│   └── with-nextauth/
-│
-├── docs/
-│   ├── getting-started.md
-│   ├── rate-limiting.md
-│   ├── authentication.md
-│   └── ...
-│
-├── package.json
-├── tsconfig.json
-├── tsup.config.ts
-├── vitest.config.ts
-├── README.md
-├── CHANGELOG.md
-├── CONTRIBUTING.md
-├── LICENSE
-└── SECURITY.md
-```
+### Benchmarks
+
+| Operation | Time |
+|-----------|------|
+| Rate limit check (memory) | < 1ms |
+| JWT validation | < 5ms |
+| CSRF validation | < 1ms |
+| XSS sanitization | < 2ms |
+| SQL injection check | < 1ms |
+
+### Optimization Techniques
+
+- Lazy loading of optional dependencies
+- Efficient regex compilation (cached)
+- Minimal memory allocations
+- No synchronous operations
+- Edge Runtime compatible (no Node.js APIs)
 
 ---
 
-## 📦 Dependencies
+## Contributing
 
-### Production (Minimal)
-```json
-{
-  "dependencies": {
-    "jose": "^5.0.0"
-  },
-  "peerDependencies": {
-    "next": ">=13.0.0"
-  },
-  "peerDependenciesMeta": {
-    "zod": { "optional": true },
-    "@upstash/redis": { "optional": true },
-    "ioredis": { "optional": true }
-  }
-}
-```
+See [CONTRIBUTING.md](CONTRIBUTING.md) for:
 
-### Development
-- typescript, tsup, vitest
-- eslint, prettier
-- changesets (versioning)
-- typedoc (API docs)
+- Development setup
+- Code style guidelines
+- Testing requirements
+- Pull request process
 
 ---
 
-## 🔧 Technical Decisions
-
-### Build
-- ESM + CJS dual export
-- Edge Runtime compatible
-- Tree-shakeable
-- Zero/minimal dependencies
-
-### Error Handling
-- Custom error classes (SecureError, RateLimitError, AuthError)
-- Consistent error responses
-- Detailed error messages in development
-
-### Type Safety
-- Full TypeScript
-- Generic handlers for typed context
-- Strict mode enabled
-
----
-
-## 📅 Development Phases
-
-### Phase 1: Foundation (Week 1-2) ✅ CURRENT
-- [x] Project structure
-- [x] Build tooling (tsup, vitest)
-- [ ] Core handler and context
-- [ ] Rate limiting (memory store)
-- [ ] Rate limiting (sliding window)
-- [ ] Rate limiting (Redis/Upstash)
-- [ ] Unit tests
-- [ ] Basic documentation
-
-### Phase 2: Authentication (Week 3-4)
-- [ ] JWT validation
-- [ ] Auth middleware
-- [ ] Supabase provider
-- [ ] NextAuth provider
-- [ ] Clerk provider
-- [ ] RBAC support
-
-### Phase 3: Additional Middleware (Week 5-6)
-- [ ] CSRF protection
-- [ ] Security headers
-- [ ] Input validation (Zod)
-- [ ] XSS sanitization
-- [ ] Protected fields
-
-### Phase 4: Logging & Polish (Week 7-8)
-- [ ] Audit logging
-- [ ] Multiple log adapters
-- [ ] Builder pattern API
-- [ ] Config-based API
-- [ ] Performance benchmarks
-
-### Phase 5: Documentation & Examples (Week 9-10)
-- [ ] Comprehensive docs
-- [ ] Example: Basic
-- [ ] Example: Supabase
-- [ ] Example: Prisma
-- [ ] Example: NextAuth
-- [ ] Migration guide
-
-### Phase 6: Launch (Week 11)
-- [ ] npm publish
-- [ ] GitHub release
-- [ ] Blog post
-- [ ] Social media
-- [ ] Hacker News / Reddit
-
----
-
-## 🚀 Rate Limiting Module (Detailed)
-
-### Features
-1. **Algorithms**
-   - Fixed Window: Simple, memory efficient
-   - Sliding Window: Smoother, more accurate
-   - Token Bucket: Burst-friendly
-
-2. **Stores**
-   - Memory: Development, single instance
-   - Redis: Production, distributed
-   - Upstash: Serverless, Edge compatible
-
-3. **Identifiers**
-   - IP address (default)
-   - User ID (authenticated)
-   - Custom function
-   - Composite (IP + route)
-
-4. **Configuration**
-   ```typescript
-   interface RateLimitConfig {
-     // Limits
-     limit: number
-     window: string | number  // '15m', '1h', 60000
-
-     // Algorithm
-     algorithm?: 'sliding-window' | 'fixed-window' | 'token-bucket'
-
-     // Identifier
-     identifier?: 'ip' | 'user' | ((req: NextRequest) => string)
-
-     // Store
-     store?: RateLimitStore
-
-     // Responses
-     onLimit?: (req: NextRequest, info: RateLimitInfo) => Response
-
-     // Headers
-     headers?: boolean  // X-RateLimit-* headers
-
-     // Skip
-     skip?: (req: NextRequest) => boolean | Promise<boolean>
-
-     // Key prefix
-     prefix?: string
-   }
-   ```
-
-5. **Response Headers**
-   ```
-   X-RateLimit-Limit: 100
-   X-RateLimit-Remaining: 95
-   X-RateLimit-Reset: 1699999999
-   Retry-After: 60 (only when limited)
-   ```
-
-6. **Error Response**
-   ```json
-   {
-     "error": "Too Many Requests",
-     "message": "Rate limit exceeded. Try again in 60 seconds.",
-     "retryAfter": 60
-   }
-   ```
-
-### Implementation Priority
-1. ✅ Types and interfaces
-2. ✅ Time parsing utility
-3. ✅ IP extraction utility
-4. ⬜ Memory store
-5. ⬜ Sliding window algorithm
-6. ⬜ Core middleware
-7. ⬜ Redis store
-8. ⬜ Upstash store
-9. ⬜ Token bucket algorithm
-10. ⬜ Tests
-
----
-
-## 📊 Success Metrics
-
-| Metric | Target | Timeline |
-|--------|--------|----------|
-| GitHub Stars | 100 | Month 1 |
-| GitHub Stars | 500 | Month 3 |
-| GitHub Stars | 1000 | Month 6 |
-| npm Weekly Downloads | 1000 | Month 1 |
-| npm Weekly Downloads | 5000 | Month 3 |
-| npm Weekly Downloads | 10000 | Month 6 |
-
----
-
-## 🔗 Resources
+## Resources
 
 - [Next.js App Router](https://nextjs.org/docs/app)
 - [jose (JWT)](https://github.com/panva/jose)
-- [Upstash Rate Limit](https://github.com/upstash/ratelimit)
-- [express-rate-limit](https://github.com/express-rate-limit/express-rate-limit)
+- [OWASP Security Headers](https://owasp.org/www-project-secure-headers/)
+- [OWASP CSRF Prevention](https://cheatsheetseries.owasp.org/cheatsheets/Cross-Site_Request_Forgery_Prevention_Cheat_Sheet.html)
 
 ---
 
-**Last Updated:** 2025-01-11
-**Status:** Phase 1 - Foundation
+**Last Updated:** 2025-01-12
+
+**Current Version:** 0.6.0
+
+**Status:** Core features complete, ready for production

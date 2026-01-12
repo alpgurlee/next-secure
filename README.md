@@ -4,14 +4,18 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-blue.svg)](https://www.typescriptlang.org/)
 [![Next.js](https://img.shields.io/badge/Next.js-13+-black.svg)](https://nextjs.org/)
+[![Tests](https://img.shields.io/badge/tests-467%20passing-brightgreen.svg)]()
 
-Production-ready security middleware for Next.js App Router. Zero config, maximum protection.
+Production-ready security middleware for Next.js 13+ App Router. Zero config, maximum protection.
 
 ```typescript
-import { withRateLimit } from 'nextjs-secure'
+import { withRateLimit, withJWT, withValidation } from 'nextjs-secure'
 
-export const GET = withRateLimit(
-  async (req) => Response.json({ message: 'Hello!' }),
+export const POST = withRateLimit(
+  withJWT(
+    withValidation(handler, { body: schema }),
+    { secret: process.env.JWT_SECRET }
+  ),
   { limit: 100, window: '15m' }
 )
 ```
@@ -27,6 +31,7 @@ Building secure APIs in Next.js shouldn't require hours of boilerplate. Most pro
 - **Edge Ready** - Works on Vercel Edge, Cloudflare Workers, Node.js
 - **Flexible** - Memory, Redis, or Upstash storage backends
 - **Lightweight** - No bloated dependencies, tree-shakeable
+- **Complete** - Rate limiting, auth, CSRF, headers, validation, audit logging
 
 ## Installation
 
@@ -42,31 +47,18 @@ pnpm add nextjs-secure
 
 - [Quick Start](#quick-start)
 - [Rate Limiting](#rate-limiting)
-  - [Basic Usage](#basic-usage)
-  - [Algorithms](#algorithms)
-  - [Storage Backends](#storage-backends)
-  - [Custom Identifiers](#custom-identifiers)
-  - [Response Customization](#response-customization)
 - [CSRF Protection](#csrf-protection)
-  - [Basic Setup](#basic-setup)
-  - [Client-Side Usage](#client-side-usage)
-  - [Configuration](#configuration-1)
-  - [Manual Validation](#manual-validation)
 - [Security Headers](#security-headers)
-  - [Quick Start](#quick-start-1)
-  - [Presets](#presets)
-  - [Custom Configuration](#custom-configuration)
 - [Authentication](#authentication)
-  - [JWT Authentication](#jwt-authentication)
-  - [API Key Authentication](#api-key-authentication)
-  - [Session Authentication](#session-authentication)
-  - [Role-Based Access Control](#role-based-access-control)
-  - [Combined Authentication](#combined-authentication)
+- [Input Validation](#input-validation)
+- [Audit Logging](#audit-logging)
 - [Utilities](#utilities)
 - [API Reference](#api-reference)
 - [Examples](#examples)
 - [Roadmap](#roadmap)
 - [Contributing](#contributing)
+
+---
 
 ## Quick Start
 
@@ -81,48 +73,53 @@ export const GET = withRateLimit(
     const posts = await db.posts.findMany()
     return Response.json(posts)
   },
-  {
-    limit: 100,    // 100 requests
-    window: '15m'  // per 15 minutes
-  }
+  { limit: 100, window: '15m' }
 )
 ```
 
-### Create a Reusable Limiter
+### Full Security Stack
 
 ```typescript
-// lib/rate-limit.ts
-import { createRateLimiter } from 'nextjs-secure'
+// app/api/admin/users/route.ts
+import { withRateLimit, withJWT, withRoles, withValidation, withAuditLog } from 'nextjs-secure'
+import { MemoryStore } from 'nextjs-secure/audit'
 
-export const apiLimiter = createRateLimiter({
-  limit: 100,
-  window: '15m',
-})
+const auditStore = new MemoryStore({ maxEntries: 1000 })
 
-export const strictLimiter = createRateLimiter({
-  limit: 10,
-  window: '1m',
-})
+const schema = {
+  email: { type: 'email', required: true },
+  role: { type: 'string', enum: ['user', 'admin'] }
+}
+
+export const POST = withAuditLog(
+  withRateLimit(
+    withJWT(
+      withRoles(
+        withValidation(
+          async (req, ctx) => {
+            // ctx.user = authenticated user
+            // ctx.validated = validated body
+            return Response.json({ success: true })
+          },
+          { body: schema }
+        ),
+        { roles: ['admin'] }
+      ),
+      { secret: process.env.JWT_SECRET }
+    ),
+    { limit: 10, window: '1m' }
+  ),
+  { store: auditStore }
+)
 ```
 
-```typescript
-// app/api/users/route.ts
-import { apiLimiter, strictLimiter } from '@/lib/rate-limit'
-
-export const GET = apiLimiter(async (req) => {
-  // ...
-})
-
-export const POST = strictLimiter(async (req) => {
-  // ...
-})
-```
+---
 
 ## Rate Limiting
 
-### Basic Usage
+Protect your APIs from abuse with configurable rate limiting.
 
-The `withRateLimit` higher-order function wraps your route handler:
+### Basic Usage
 
 ```typescript
 import { withRateLimit } from 'nextjs-secure'
@@ -144,29 +141,18 @@ export const GET = withRateLimit(handler, {
 ### Algorithms
 
 #### Sliding Window (Default)
-
-Prevents request bursts at window boundaries. Uses weighted counting between current and previous windows.
+Prevents request bursts at window boundaries.
 
 ```typescript
 export const GET = withRateLimit(handler, {
   limit: 100,
   window: '15m',
-  algorithm: 'sliding-window', // default
+  algorithm: 'sliding-window',
 })
 ```
 
-**How it works:**
-```
-Window 1: |----[80 requests]-----|
-Window 2: |--[30 requests]-------|
-                    ^ 50% through window 2
-
-Weighted count = 30 + (80 × 0.5) = 70 requests
-```
-
 #### Fixed Window
-
-Simple counter that resets at fixed intervals. Lower memory usage but allows bursts at boundaries.
+Simple counter that resets at fixed intervals.
 
 ```typescript
 export const GET = withRateLimit(handler, {
@@ -176,83 +162,45 @@ export const GET = withRateLimit(handler, {
 })
 ```
 
-**Burst scenario:**
-```
-Window 1: |------------------[100]|  <- 100 requests at :59
-Window 2: |[100]------------------|  <- 100 requests at :00
-          200 requests in 2 seconds!
-```
-
 #### Token Bucket
-
-Allows controlled bursts while maintaining average rate. Tokens refill continuously.
+Allows controlled bursts while maintaining average rate.
 
 ```typescript
 export const GET = withRateLimit(handler, {
-  limit: 100,      // Bucket capacity
-  window: '1m',    // Full refill time
+  limit: 100,
+  window: '1m',
   algorithm: 'token-bucket',
 })
 ```
-
-**Use case:** APIs where occasional bursts are acceptable but average rate must be controlled.
 
 ### Storage Backends
 
 #### Memory Store (Default)
 
-Built-in, zero-config. Perfect for development and single-instance deployments.
-
 ```typescript
 import { withRateLimit, MemoryStore } from 'nextjs-secure'
 
 const store = new MemoryStore({
-  cleanupInterval: 60000,  // Cleanup every minute
-  maxKeys: 10000,          // LRU eviction after 10k keys
+  cleanupInterval: 60000,
+  maxKeys: 10000,
 })
 
-export const GET = withRateLimit(handler, {
-  limit: 100,
-  window: '15m',
-  store,
-})
+export const GET = withRateLimit(handler, { limit: 100, window: '15m', store })
 ```
 
-**Limitations:**
-- Data lost on restart
-- Not shared between instances
-- Not suitable for serverless (cold starts)
-
 #### Redis Store
-
-For distributed deployments. Works with ioredis, node-redis, or any compatible client.
 
 ```typescript
 import Redis from 'ioredis'
 import { withRateLimit, createRedisStore } from 'nextjs-secure/rate-limit'
 
 const redis = new Redis(process.env.REDIS_URL)
+const store = createRedisStore({ client: redis, prefix: 'myapp:rl' })
 
-const store = createRedisStore({
-  client: redis,
-  prefix: 'myapp:rl',  // Key prefix
-})
-
-export const GET = withRateLimit(handler, {
-  limit: 100,
-  window: '15m',
-  store,
-})
+export const GET = withRateLimit(handler, { limit: 100, window: '15m', store })
 ```
 
-**Features:**
-- Atomic operations via Lua scripts
-- Automatic key expiration
-- Cluster-ready
-
-#### Upstash Store
-
-Optimized for serverless and edge. Uses HTTP-based Redis.
+#### Upstash Store (Edge/Serverless)
 
 ```typescript
 import { withRateLimit, createUpstashStore } from 'nextjs-secure/rate-limit'
@@ -262,41 +210,20 @@ const store = createUpstashStore({
   token: process.env.UPSTASH_REDIS_REST_TOKEN,
 })
 
-export const GET = withRateLimit(handler, {
-  limit: 100,
-  window: '15m',
-  store,
-})
-
-// Or from environment variables
-import { createUpstashStoreFromEnv } from 'nextjs-secure/rate-limit'
-const store = createUpstashStoreFromEnv()
+export const GET = withRateLimit(handler, { limit: 100, window: '15m', store })
 ```
-
-**Benefits:**
-- No TCP connections
-- Works on Edge Runtime
-- Global distribution support
 
 ### Custom Identifiers
 
-By default, rate limiting is per-IP. Customize with the `identifier` option:
-
-#### By API Key
-
 ```typescript
+// By API Key
 export const GET = withRateLimit(handler, {
   limit: 1000,
   window: '1h',
-  identifier: (req) => {
-    return req.headers.get('x-api-key') ?? 'anonymous'
-  },
+  identifier: (req) => req.headers.get('x-api-key') ?? 'anonymous',
 })
-```
 
-#### By User ID
-
-```typescript
+// By User ID
 export const GET = withRateLimit(handler, {
   limit: 100,
   window: '15m',
@@ -307,104 +234,20 @@ export const GET = withRateLimit(handler, {
 })
 ```
 
-#### By Route + IP
-
-```typescript
-export const GET = withRateLimit(handler, {
-  limit: 100,
-  window: '15m',
-  identifier: (req) => {
-    const ip = req.headers.get('x-forwarded-for') ?? '127.0.0.1'
-    return `${req.nextUrl.pathname}:${ip}`
-  },
-})
-```
-
-### Response Customization
-
-#### Custom Error Response
-
-```typescript
-export const GET = withRateLimit(handler, {
-  limit: 100,
-  window: '15m',
-  onLimit: (req, info) => {
-    return Response.json(
-      {
-        error: 'rate_limit_exceeded',
-        message: `Too many requests. Try again in ${info.retryAfter} seconds.`,
-        limit: info.limit,
-        reset: new Date(info.reset * 1000).toISOString(),
-      },
-      { status: 429 }
-    )
-  },
-})
-```
-
-#### Skip Certain Requests
-
-```typescript
-export const GET = withRateLimit(handler, {
-  limit: 100,
-  window: '15m',
-  skip: (req) => {
-    // Skip for internal services
-    const key = req.headers.get('x-internal-key')
-    return key === process.env.INTERNAL_API_KEY
-  },
-})
-```
-
-#### Disable Headers
-
-```typescript
-export const GET = withRateLimit(handler, {
-  limit: 100,
-  window: '15m',
-  headers: false,  // Don't add X-RateLimit-* headers
-})
-```
-
 ### Response Headers
 
-When `headers: true` (default), responses include:
+| Header | Description |
+|--------|-------------|
+| `X-RateLimit-Limit` | Maximum requests allowed |
+| `X-RateLimit-Remaining` | Requests remaining |
+| `X-RateLimit-Reset` | Unix timestamp when limit resets |
+| `Retry-After` | Seconds until retry (only on 429) |
 
-| Header | Description | Example |
-|--------|-------------|---------|
-| `X-RateLimit-Limit` | Maximum requests allowed | `100` |
-| `X-RateLimit-Remaining` | Requests remaining | `95` |
-| `X-RateLimit-Reset` | Unix timestamp when limit resets | `1699999999` |
-| `Retry-After` | Seconds until retry (only on 429) | `60` |
-
-### Manual Rate Limit Check
-
-For existing handlers or complex logic:
-
-```typescript
-import { checkRateLimit } from 'nextjs-secure'
-
-export async function GET(request: NextRequest) {
-  const { success, info, headers } = await checkRateLimit(request, {
-    limit: 100,
-    window: '15m',
-  })
-
-  if (!success) {
-    return Response.json(
-      { error: 'Rate limited' },
-      { status: 429, headers }
-    )
-  }
-
-  // Your logic here
-  return Response.json({ data: '...' }, { headers })
-}
-```
+---
 
 ## CSRF Protection
 
-Protect your forms against Cross-Site Request Forgery attacks using the double submit cookie pattern.
+Protect forms against Cross-Site Request Forgery attacks.
 
 ### Basic Setup
 
@@ -414,7 +257,6 @@ import { generateCSRF } from 'nextjs-secure/csrf'
 
 export async function GET() {
   const { token, cookieHeader } = await generateCSRF()
-
   return Response.json(
     { csrfToken: token },
     { headers: { 'Set-Cookie': cookieHeader } }
@@ -428,7 +270,6 @@ import { withCSRF } from 'nextjs-secure/csrf'
 
 export const POST = withCSRF(async (req) => {
   const data = await req.json()
-  // Safe to process - CSRF validated
   return Response.json({ success: true })
 })
 ```
@@ -444,111 +285,51 @@ fetch('/api/submit', {
   method: 'POST',
   headers: {
     'Content-Type': 'application/json',
-    'x-csrf-token': csrfToken  // Token in header
+    'x-csrf-token': csrfToken
   },
   body: JSON.stringify({ data: '...' })
-})
-```
-
-Or include in form body:
-
-```typescript
-fetch('/api/submit', {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({
-    _csrf: csrfToken,  // Token in body
-    data: '...'
-  })
 })
 ```
 
 ### Configuration
 
 ```typescript
-import { withCSRF } from 'nextjs-secure/csrf'
-
 export const POST = withCSRF(handler, {
-  // Cookie settings
   cookie: {
-    name: '__csrf',        // Cookie name
-    httpOnly: true,        // Not accessible via JS
-    secure: true,          // HTTPS only
-    sameSite: 'strict',    // Strict same-site policy
-    maxAge: 86400          // 24 hours
+    name: '__csrf',
+    httpOnly: true,
+    secure: true,
+    sameSite: 'strict',
+    maxAge: 86400
   },
-
-  // Where to look for token
-  headerName: 'x-csrf-token',  // Header name
-  fieldName: '_csrf',          // Body field name
-
-  // Token settings
-  secret: process.env.CSRF_SECRET,  // Signing secret
-  tokenLength: 32,                   // Token size in bytes
-
-  // Protected methods (default: POST, PUT, PATCH, DELETE)
-  protectedMethods: ['POST', 'PUT', 'PATCH', 'DELETE'],
-
-  // Skip protection conditionally
+  headerName: 'x-csrf-token',
+  fieldName: '_csrf',
+  secret: process.env.CSRF_SECRET,
   skip: (req) => req.headers.get('x-api-key') === 'trusted',
-
-  // Custom error response
-  onError: (req, reason) => {
-    return new Response(`CSRF failed: ${reason}`, { status: 403 })
-  }
 })
 ```
 
-### Manual Validation
-
-```typescript
-import { validateCSRF } from 'nextjs-secure/csrf'
-
-export async function POST(req) {
-  const result = await validateCSRF(req)
-
-  if (!result.valid) {
-    console.log('CSRF failed:', result.reason)
-    // reason: 'missing_cookie' | 'invalid_cookie' | 'missing_token' | 'token_mismatch'
-    return Response.json({ error: result.reason }, { status: 403 })
-  }
-
-  // Continue processing
-}
-```
-
-### Environment Variable
-
-Set `CSRF_SECRET` in your environment:
-
-```env
-CSRF_SECRET=your-secret-key-min-32-chars-recommended
-```
+---
 
 ## Security Headers
 
-Add security headers to your responses with pre-configured presets or custom configuration.
+Add security headers to protect against common attacks.
 
 ### Quick Start
 
 ```typescript
 import { withSecurityHeaders } from 'nextjs-secure/headers'
 
-// Use strict preset (default)
-export const GET = withSecurityHeaders(async (req) => {
-  return Response.json({ data: 'protected' })
-})
+export const GET = withSecurityHeaders(handler)
 ```
 
 ### Presets
-
-Three presets available: `strict`, `relaxed`, `api`
 
 ```typescript
 // Strict: Maximum security (default)
 export const GET = withSecurityHeaders(handler, { preset: 'strict' })
 
-// Relaxed: Development-friendly, allows inline scripts
+// Relaxed: Development-friendly
 export const GET = withSecurityHeaders(handler, { preset: 'relaxed' })
 
 // API: Optimized for JSON APIs
@@ -558,36 +339,22 @@ export const GET = withSecurityHeaders(handler, { preset: 'api' })
 ### Custom Configuration
 
 ```typescript
-import { withSecurityHeaders } from 'nextjs-secure/headers'
-
 export const GET = withSecurityHeaders(handler, {
   config: {
-    // Content-Security-Policy
     contentSecurityPolicy: {
       defaultSrc: ["'self'"],
       scriptSrc: ["'self'", "'unsafe-inline'"],
       styleSrc: ["'self'", "'unsafe-inline'"],
       imgSrc: ["'self'", 'data:', 'https:'],
     },
-
-    // Strict-Transport-Security
     strictTransportSecurity: {
       maxAge: 31536000,
       includeSubDomains: true,
       preload: true,
     },
-
-    // Other headers
-    xFrameOptions: 'DENY',           // or 'SAMEORIGIN'
-    xContentTypeOptions: true,        // X-Content-Type-Options: nosniff
+    xFrameOptions: 'DENY',
+    xContentTypeOptions: true,
     referrerPolicy: 'strict-origin-when-cross-origin',
-
-    // Cross-Origin headers
-    crossOriginOpenerPolicy: 'same-origin',
-    crossOriginEmbedderPolicy: 'require-corp',
-    crossOriginResourcePolicy: 'same-origin',
-
-    // Permissions-Policy (disable features)
     permissionsPolicy: {
       camera: [],
       microphone: [],
@@ -595,31 +362,6 @@ export const GET = withSecurityHeaders(handler, {
     },
   }
 })
-```
-
-### Disable Specific Headers
-
-```typescript
-export const GET = withSecurityHeaders(handler, {
-  config: {
-    contentSecurityPolicy: false,  // Disable CSP
-    xFrameOptions: false,          // Disable X-Frame-Options
-  }
-})
-```
-
-### Manual Header Creation
-
-```typescript
-import { createSecurityHeaders } from 'nextjs-secure/headers'
-
-export async function GET() {
-  const headers = createSecurityHeaders({ preset: 'api' })
-
-  return new Response(JSON.stringify({ ok: true }), {
-    headers,
-  })
-}
 ```
 
 ### Available Headers
@@ -636,9 +378,11 @@ export async function GET() {
 | Cross-Origin-Embedder-Policy | Controls embedding |
 | Cross-Origin-Resource-Policy | Controls resource sharing |
 
+---
+
 ## Authentication
 
-Flexible authentication middleware supporting JWT, API keys, session cookies, and role-based access control.
+Flexible authentication supporting JWT, API keys, sessions, and RBAC.
 
 ### JWT Authentication
 
@@ -647,50 +391,15 @@ import { withJWT } from 'nextjs-secure/auth'
 
 export const GET = withJWT(
   async (req, ctx) => {
-    // ctx.user contains the authenticated user
     return Response.json({ user: ctx.user })
   },
   {
     secret: process.env.JWT_SECRET,
-    // or use publicKey for RS256/ES256
+    algorithms: ['HS256', 'RS256'],
+    issuer: 'https://myapp.com',
+    audience: 'my-api',
   }
 )
-```
-
-#### Configuration
-
-```typescript
-export const GET = withJWT(handler, {
-  // Secret for HMAC algorithms (HS256, HS384, HS512)
-  secret: process.env.JWT_SECRET,
-
-  // Public key for RSA/ECDSA (RS256, ES256, etc.)
-  publicKey: process.env.JWT_PUBLIC_KEY,
-
-  // Allowed algorithms (default: ['HS256'])
-  algorithms: ['HS256', 'RS256'],
-
-  // Validate issuer
-  issuer: 'https://myapp.com',
-  // or multiple issuers
-  issuer: ['https://auth.myapp.com', 'https://api.myapp.com'],
-
-  // Validate audience
-  audience: 'my-api',
-
-  // Clock tolerance in seconds (for exp/nbf claims)
-  clockTolerance: 30,
-
-  // Custom token extraction
-  getToken: (req) => req.headers.get('x-auth-token'),
-
-  // Custom user mapping from JWT payload
-  mapUser: (payload) => ({
-    id: payload.sub,
-    email: payload.email,
-    roles: payload.roles || [],
-  }),
-})
 ```
 
 ### API Key Authentication
@@ -703,40 +412,14 @@ export const GET = withAPIKey(
     return Response.json({ user: ctx.user })
   },
   {
-    validate: async (apiKey, req) => {
-      // Return user object if valid, null if invalid
+    validate: async (apiKey) => {
       const user = await db.users.findByApiKey(apiKey)
       return user || null
     },
+    headerName: 'x-api-key',
+    queryParam: 'api_key',
   }
 )
-```
-
-#### Configuration
-
-```typescript
-export const GET = withAPIKey(handler, {
-  // Required: validation function
-  validate: async (apiKey, req) => {
-    // Lookup API key and return user or null
-    return db.apiKeys.findUser(apiKey)
-  },
-
-  // Header name (default: 'x-api-key')
-  headerName: 'x-api-key',
-
-  // Query parameter name (default: 'api_key')
-  queryParam: 'api_key',
-})
-```
-
-API keys can be sent via header or query parameter:
-```bash
-# Via header
-curl -H "x-api-key: YOUR_API_KEY" https://api.example.com/data
-
-# Via query parameter
-curl https://api.example.com/data?api_key=YOUR_API_KEY
 ```
 
 ### Session Authentication
@@ -749,126 +432,53 @@ export const GET = withSession(
     return Response.json({ user: ctx.user })
   },
   {
-    validate: async (sessionId, req) => {
-      // Return user object if session valid, null if invalid
+    validate: async (sessionId) => {
       const session = await db.sessions.find(sessionId)
       return session?.user || null
     },
+    cookieName: 'session',
   }
 )
 ```
 
-#### Configuration
-
-```typescript
-export const GET = withSession(handler, {
-  // Required: session validation function
-  validate: async (sessionId, req) => {
-    const session = await redis.get(`session:${sessionId}`)
-    if (!session) return null
-    return JSON.parse(session)
-  },
-
-  // Cookie name (default: 'session')
-  cookieName: 'session',
-})
-```
-
 ### Role-Based Access Control
-
-Use `withRoles` after an authentication middleware to enforce role/permission requirements.
 
 ```typescript
 import { withJWT, withRoles } from 'nextjs-secure/auth'
 
-// Chain with JWT auth
-const authenticatedHandler = withJWT(
+export const GET = withJWT(
   withRoles(
     async (req, ctx) => {
       return Response.json({ admin: true })
     },
-    { roles: ['admin'] }
+    {
+      roles: ['admin', 'moderator'],
+      permissions: ['users:read', 'users:write'],
+    }
   ),
   { secret: process.env.JWT_SECRET }
 )
-
-export const GET = authenticatedHandler
-```
-
-#### Configuration
-
-```typescript
-withRoles(handler, {
-  // Required roles (any match = authorized)
-  roles: ['admin', 'moderator'],
-
-  // Required permissions (all must match)
-  permissions: ['read', 'write'],
-
-  // Custom role extraction
-  getUserRoles: (user) => user.roles || [],
-
-  // Custom permission extraction
-  getUserPermissions: (user) => user.permissions || [],
-
-  // Custom authorization logic
-  authorize: async (user, req) => {
-    // Return true if authorized, false otherwise
-    return user.subscriptionTier === 'pro'
-  },
-})
 ```
 
 ### Combined Authentication
-
-Use `withAuth` for flexible multi-strategy authentication:
 
 ```typescript
 import { withAuth } from 'nextjs-secure/auth'
 
 export const GET = withAuth(
   async (req, ctx) => {
-    // Authenticated via any method
     return Response.json({ user: ctx.user })
   },
   {
-    // Try JWT first
-    jwt: {
-      secret: process.env.JWT_SECRET,
-    },
-
-    // Fall back to API key
-    apiKey: {
-      validate: (key) => db.apiKeys.findUser(key),
-    },
-
-    // Fall back to session
-    session: {
-      validate: (id) => db.sessions.findUser(id),
-    },
-
-    // Optional RBAC
-    rbac: {
-      roles: ['user', 'admin'],
-    },
-
-    // Callbacks
-    onSuccess: async (req, user) => {
-      // Log successful auth
-      console.log(`Authenticated: ${user.id}`)
-    },
-
-    onError: (req, error) => {
-      // Custom error response
-      return Response.json({ error: error.message }, { status: error.status })
-    },
+    jwt: { secret: process.env.JWT_SECRET },
+    apiKey: { validate: (key) => db.apiKeys.findUser(key) },
+    session: { validate: (id) => db.sessions.findUser(id) },
+    rbac: { roles: ['user', 'admin'] },
   }
 )
 ```
 
 ### Optional Authentication
-
-For routes that work with or without authentication:
 
 ```typescript
 import { withOptionalAuth } from 'nextjs-secure/auth'
@@ -876,41 +486,319 @@ import { withOptionalAuth } from 'nextjs-secure/auth'
 export const GET = withOptionalAuth(
   async (req, ctx) => {
     if (ctx.user) {
-      // Authenticated user
       return Response.json({ user: ctx.user })
     }
-    // Anonymous access
     return Response.json({ guest: true })
   },
-  {
-    jwt: { secret: process.env.JWT_SECRET },
-  }
+  { jwt: { secret: process.env.JWT_SECRET } }
 )
 ```
 
-### JWT Utilities
+---
+
+## Input Validation
+
+Validate and sanitize user input to prevent attacks.
+
+### Schema Validation
 
 ```typescript
-import { verifyJWT, decodeJWT, extractBearerToken } from 'nextjs-secure/auth'
+import { withValidation } from 'nextjs-secure/validation'
 
-// Verify and decode JWT
-const { payload, error } = await verifyJWT(token, {
-  secret: process.env.JWT_SECRET,
-  issuer: 'myapp',
-})
-
-if (error) {
-  console.log(error.code) // 'expired_token', 'invalid_signature', etc.
+// Built-in schema
+const schema = {
+  email: { type: 'email', required: true },
+  password: { type: 'string', minLength: 8, maxLength: 100 },
+  age: { type: 'number', min: 18, max: 120 },
+  role: { type: 'string', enum: ['user', 'admin'] },
 }
 
-// Decode without verification (for inspection only)
-const decoded = decodeJWT(token)
-// { header, payload, signature }
+export const POST = withValidation(handler, { body: schema })
 
-// Extract token from Authorization header
-const token = extractBearerToken(req.headers.get('authorization'))
-// 'Bearer xxx' -> 'xxx'
+// Or use Zod
+import { z } from 'zod'
+
+const zodSchema = z.object({
+  email: z.string().email(),
+  password: z.string().min(8),
+})
+
+export const POST = withValidation(handler, { body: zodSchema })
 ```
+
+### XSS Protection
+
+```typescript
+import { withXSSProtection, withSanitization, sanitize, detectXSS } from 'nextjs-secure/validation'
+
+// Block XSS attempts
+export const POST = withXSSProtection(handler)
+
+// Sanitize specific fields
+export const POST = withSanitization(handler, {
+  fields: ['content', 'bio'],
+  mode: 'escape', // 'escape' | 'strip' | 'allow-safe'
+})
+
+// Manual sanitization
+const clean = sanitize(userInput, {
+  mode: 'allow-safe',
+  allowedTags: ['b', 'i', 'em', 'strong'],
+})
+
+// Detection only
+const { hasXSS, matches } = detectXSS(input)
+```
+
+### SQL Injection Protection
+
+```typescript
+import { withSQLProtection, detectSQLInjection, hasSQLInjection } from 'nextjs-secure/validation'
+
+// Block SQL injection
+export const POST = withSQLProtection(handler, {
+  mode: 'block', // 'block' | 'detect'
+  minSeverity: 'medium', // 'low' | 'medium' | 'high'
+})
+
+// Manual detection
+const result = detectSQLInjection(input)
+// { hasSQLi: true, severity: 'high', patterns: ['UNION SELECT'] }
+
+// Simple check
+if (hasSQLInjection(input)) {
+  // Block request
+}
+```
+
+### Path Traversal Prevention
+
+```typescript
+import { validatePath, sanitizePath, sanitizeFilename } from 'nextjs-secure/validation'
+
+// Validate path
+const result = validatePath(userPath, {
+  basePath: '/uploads',
+  allowedExtensions: ['.jpg', '.png'],
+  maxDepth: 3,
+})
+
+if (!result.valid) {
+  console.log(result.reason) // 'traversal_detected', 'invalid_extension', etc.
+}
+
+// Sanitize
+const safePath = sanitizePath('../../../etc/passwd') // 'etc/passwd'
+const safeFilename = sanitizeFilename('../../evil.exe') // 'evil.exe'
+```
+
+### File Validation
+
+```typescript
+import { withFileValidation, validateFile } from 'nextjs-secure/validation'
+
+export const POST = withFileValidation(handler, {
+  maxSize: 5 * 1024 * 1024, // 5MB
+  allowedTypes: ['image/jpeg', 'image/png', 'application/pdf'],
+  validateMagicNumbers: true, // Check actual file content
+  maxFiles: 10,
+})
+
+// Manual validation
+const result = await validateFile(file, {
+  maxSize: 5 * 1024 * 1024,
+  allowedTypes: ['image/jpeg'],
+})
+```
+
+### Combined Security Validation
+
+```typescript
+import { withSecureValidation } from 'nextjs-secure/validation'
+
+export const POST = withSecureValidation(handler, {
+  xss: true,
+  sql: { minSeverity: 'medium' },
+  contentType: ['application/json'],
+})
+```
+
+---
+
+## Audit Logging
+
+Track requests and security events for monitoring and compliance.
+
+### Request Logging
+
+```typescript
+import { withAuditLog, MemoryStore, ConsoleStore } from 'nextjs-secure/audit'
+
+const store = new MemoryStore({ maxEntries: 1000 })
+
+export const POST = withAuditLog(handler, {
+  store,
+  include: {
+    ip: true,
+    userAgent: true,
+    headers: false,
+    query: true,
+    response: true,
+    duration: true,
+  },
+  exclude: {
+    paths: ['/health', '/metrics'],
+    methods: ['OPTIONS'],
+    statusCodes: [304],
+  },
+  pii: {
+    fields: ['password', 'token', 'ssn', 'creditCard'],
+    mode: 'mask', // 'mask' | 'hash' | 'remove'
+  },
+})
+```
+
+### Storage Backends
+
+```typescript
+import { MemoryStore, ConsoleStore, createDatadogStore, MultiStore } from 'nextjs-secure/audit'
+
+// Memory (development)
+const memoryStore = new MemoryStore({ maxEntries: 1000, ttl: 3600000 })
+
+// Console (development)
+const consoleStore = new ConsoleStore({ colorize: true, level: 'info' })
+
+// Datadog (production)
+const datadogStore = createDatadogStore({
+  apiKey: process.env.DATADOG_API_KEY,
+  service: 'my-api',
+  environment: 'production',
+})
+
+// Multiple stores
+const multiStore = new MultiStore([consoleStore, datadogStore])
+```
+
+### Security Event Tracking
+
+```typescript
+import { createSecurityTracker, trackSecurityEvent } from 'nextjs-secure/audit'
+
+const tracker = createSecurityTracker({ store })
+
+// Authentication failures
+await tracker.authFailed({
+  ip: '192.168.1.1',
+  email: 'user@example.com',
+  reason: 'Invalid password',
+})
+
+// Rate limit exceeded
+await tracker.rateLimitExceeded({
+  ip: '192.168.1.1',
+  endpoint: '/api/login',
+  limit: 10,
+  window: '15m',
+})
+
+// XSS detected
+await tracker.xssDetected({
+  ip: '192.168.1.1',
+  field: 'comment',
+  endpoint: '/api/comments',
+})
+
+// SQL injection detected
+await tracker.sqliDetected({
+  ip: '192.168.1.1',
+  field: 'username',
+  pattern: 'UNION SELECT',
+  severity: 'high',
+  endpoint: '/api/users',
+})
+
+// CSRF validation failure
+await tracker.csrfInvalid({
+  ip: '192.168.1.1',
+  endpoint: '/api/transfer',
+  reason: 'Token mismatch',
+})
+
+// IP blocked
+await tracker.ipBlocked({
+  ip: '192.168.1.1',
+  reason: 'Too many failed attempts',
+  duration: 3600,
+})
+
+// Custom events
+await tracker.custom({
+  message: 'Suspicious activity detected',
+  severity: 'high',
+  details: { pattern: 'automated_scanning' },
+})
+```
+
+### PII Redaction
+
+```typescript
+import { redactObject, redactEmail, redactCreditCard, redactIP, DEFAULT_PII_FIELDS } from 'nextjs-secure/audit'
+
+// Redact object
+const safeData = redactObject(userData, {
+  fields: DEFAULT_PII_FIELDS,
+  mode: 'mask',
+})
+
+// Specific redactors
+redactEmail('john@example.com')     // '****@example.com'
+redactCreditCard('4111111111111111') // '**** **** **** 1111'
+redactIP('192.168.1.100')           // '192.168.*.*'
+```
+
+### Request ID & Timing
+
+```typescript
+import { withRequestId, withTiming } from 'nextjs-secure/audit'
+
+// Add request ID to responses
+export const GET = withRequestId(handler, {
+  headerName: 'x-request-id',
+  generateId: () => `req_${Date.now()}`,
+})
+
+// Add response timing
+export const GET = withTiming(handler, {
+  headerName: 'x-response-time',
+  log: true,
+})
+```
+
+### Log Formatters
+
+```typescript
+import { JSONFormatter, TextFormatter, CLFFormatter, StructuredFormatter } from 'nextjs-secure/audit'
+
+// JSON (default)
+const jsonFormatter = new JSONFormatter({ pretty: true })
+
+// Human-readable text
+const textFormatter = new TextFormatter({
+  template: '{timestamp} [{level}] {message}',
+})
+
+// Apache/Nginx Common Log Format
+const clfFormatter = new CLFFormatter()
+
+// Key=value (ELK/Splunk)
+const structuredFormatter = new StructuredFormatter({
+  delimiter: ' ',
+  kvSeparator: '=',
+})
+```
+
+---
 
 ## Utilities
 
@@ -925,239 +813,205 @@ parseDuration('2d')         // 172800000
 
 formatDuration(900000)      // '15m'
 formatDuration(5400000)     // '1h 30m'
-formatDuration(90061000)    // '1d 1h 1m 1s'
 ```
 
 ### IP Utilities
 
 ```typescript
-import { getClientIp, anonymizeIp, isPrivateIp } from 'nextjs-secure'
+import { getClientIp, anonymizeIp, isPrivateIp, isLocalhost } from 'nextjs-secure'
 
-// Extract client IP from request
-const ip = getClientIp(request)
-
-// Handles: cf-connecting-ip, x-real-ip, x-forwarded-for, etc.
+// Extract client IP
 const ip = getClientIp(request, {
   trustProxy: true,
   customHeaders: ['x-custom-ip'],
-  fallback: '0.0.0.0',
 })
 
-// Anonymize for logging (GDPR compliant)
+// Anonymize for GDPR
 anonymizeIp('192.168.1.100')  // '192.168.1.xxx'
 
-// Check if private
+// Check IP type
 isPrivateIp('192.168.1.1')    // true
 isPrivateIp('8.8.8.8')        // false
+isLocalhost('127.0.0.1')      // true
 ```
+
+---
 
 ## API Reference
 
-### `withRateLimit(handler, config)`
+### Rate Limiting
 
-Wraps a route handler with rate limiting.
+| Function | Description |
+|----------|-------------|
+| `withRateLimit(handler, config)` | Wrap handler with rate limiting |
+| `createRateLimiter(config)` | Create reusable rate limiter |
+| `checkRateLimit(request, config)` | Manual rate limit check |
+| `getRateLimitStatus(key, config)` | Get current status without incrementing |
+| `resetRateLimit(key, config)` | Reset rate limit for key |
 
-```typescript
-interface RateLimitConfig {
-  limit: number
-  window: string | number
-  algorithm?: 'sliding-window' | 'fixed-window' | 'token-bucket'
-  identifier?: 'ip' | 'user' | ((req: NextRequest) => string | Promise<string>)
-  store?: RateLimitStore
-  headers?: boolean
-  skip?: (req: NextRequest) => boolean | Promise<boolean>
-  onLimit?: (req: NextRequest, info: RateLimitInfo) => Response | Promise<Response>
-  prefix?: string
-  message?: string
-  statusCode?: number
-}
-```
+### CSRF
 
-### `createRateLimiter(config)`
+| Function | Description |
+|----------|-------------|
+| `withCSRF(handler, config)` | Wrap handler with CSRF protection |
+| `generateCSRF(config)` | Generate CSRF token and cookie |
+| `validateCSRF(request, config)` | Manual CSRF validation |
 
-Creates a reusable rate limiter function.
+### Security Headers
 
-### `checkRateLimit(request, config)`
+| Function | Description |
+|----------|-------------|
+| `withSecurityHeaders(handler, config)` | Add security headers |
+| `createSecurityHeaders(config)` | Create headers object |
+| `buildCSP(config)` | Build CSP header string |
+| `getPreset(name)` | Get preset configuration |
 
-Manually check rate limit without wrapping.
+### Authentication
 
-Returns:
-```typescript
-{
-  success: boolean
-  info: RateLimitInfo
-  headers: Headers
-  response?: Response  // Only if rate limited
-}
-```
+| Function | Description |
+|----------|-------------|
+| `withJWT(handler, config)` | JWT authentication |
+| `withAPIKey(handler, config)` | API key authentication |
+| `withSession(handler, config)` | Session authentication |
+| `withAuth(handler, config)` | Combined authentication |
+| `withRoles(handler, config)` | Role-based access control |
+| `withOptionalAuth(handler, config)` | Optional authentication |
+| `verifyJWT(token, config)` | Verify JWT token |
+| `decodeJWT(token)` | Decode JWT without verification |
 
-### `RateLimitInfo`
+### Validation
 
-```typescript
-interface RateLimitInfo {
-  limit: number      // Max requests
-  remaining: number  // Requests left
-  reset: number      // Unix timestamp
-  limited: boolean   // Whether rate limited
-  retryAfter?: number // Seconds until retry
-}
-```
+| Function | Description |
+|----------|-------------|
+| `withValidation(handler, config)` | Schema validation |
+| `withXSSProtection(handler)` | Block XSS attempts |
+| `withSanitization(handler, config)` | Sanitize input |
+| `withSQLProtection(handler, config)` | Block SQL injection |
+| `withFileValidation(handler, config)` | File upload validation |
+| `sanitize(input, config)` | Manual sanitization |
+| `detectXSS(input)` | Detect XSS patterns |
+| `detectSQLInjection(input)` | Detect SQL injection |
+| `validatePath(path, config)` | Validate file path |
+
+### Audit Logging
+
+| Function | Description |
+|----------|-------------|
+| `withAuditLog(handler, config)` | Request logging |
+| `withRequestId(handler, config)` | Add request ID |
+| `withTiming(handler, config)` | Add response timing |
+| `createSecurityTracker(config)` | Create event tracker |
+| `trackSecurityEvent(store, event)` | Track single event |
+| `redactObject(obj, config)` | Redact PII from object |
+
+---
 
 ## Examples
 
-### Different Limits per HTTP Method
+### Complete API with All Security Features
 
 ```typescript
-// app/api/posts/route.ts
-import { withRateLimit } from 'nextjs-secure'
+// lib/security.ts
+import { createRateLimiter, MemoryStore } from 'nextjs-secure/rate-limit'
+import { createSecurityTracker, MemoryStore as AuditStore } from 'nextjs-secure/audit'
 
-// Generous limit for reads
-export const GET = withRateLimit(getHandler, {
-  limit: 1000,
+export const apiLimiter = createRateLimiter({
+  limit: 100,
   window: '15m',
+  store: new MemoryStore(),
 })
 
-// Strict limit for writes
-export const POST = withRateLimit(postHandler, {
-  limit: 10,
+export const strictLimiter = createRateLimiter({
+  limit: 5,
   window: '1m',
 })
 
-// Very strict for deletes
-export const DELETE = withRateLimit(deleteHandler, {
-  limit: 5,
-  window: '1h',
-})
+export const auditStore = new AuditStore({ maxEntries: 10000 })
+export const securityTracker = createSecurityTracker({ store: auditStore })
+```
+
+```typescript
+// app/api/users/route.ts
+import { withJWT, withRoles } from 'nextjs-secure/auth'
+import { withValidation } from 'nextjs-secure/validation'
+import { withAuditLog } from 'nextjs-secure/audit'
+import { apiLimiter, auditStore, securityTracker } from '@/lib/security'
+
+const createUserSchema = {
+  email: { type: 'email', required: true },
+  name: { type: 'string', minLength: 2, maxLength: 100 },
+  role: { type: 'string', enum: ['user', 'admin'] },
+}
+
+async function createUser(req, ctx) {
+  const { email, name, role } = ctx.validated
+  const user = await db.users.create({ email, name, role })
+  return Response.json(user, { status: 201 })
+}
+
+export const POST = withAuditLog(
+  apiLimiter(
+    withJWT(
+      withRoles(
+        withValidation(createUser, { body: createUserSchema }),
+        { roles: ['admin'] }
+      ),
+      { secret: process.env.JWT_SECRET }
+    )
+  ),
+  {
+    store: auditStore,
+    include: { ip: true, userAgent: true },
+    pii: { fields: ['password'], mode: 'remove' },
+  }
+)
 ```
 
 ### Tiered Rate Limiting
 
 ```typescript
-// lib/rate-limit.ts
 import { createRateLimiter, createUpstashStore } from 'nextjs-secure/rate-limit'
 
 const store = createUpstashStore({
-  url: process.env.UPSTASH_REDIS_REST_URL!,
-  token: process.env.UPSTASH_REDIS_REST_TOKEN!,
+  url: process.env.UPSTASH_REDIS_REST_URL,
+  token: process.env.UPSTASH_REDIS_REST_TOKEN,
 })
 
-// Free tier: 100 req/day
-export const freeLimiter = createRateLimiter({
+const freeLimiter = createRateLimiter({
   limit: 100,
   window: '1d',
   store,
-  identifier: async (req) => {
-    const apiKey = req.headers.get('x-api-key')
-    return `free:${apiKey}`
-  },
+  identifier: (req) => `free:${req.headers.get('x-api-key')}`,
 })
 
-// Pro tier: 10000 req/day
-export const proLimiter = createRateLimiter({
+const proLimiter = createRateLimiter({
   limit: 10000,
   window: '1d',
   store,
-  identifier: async (req) => {
-    const apiKey = req.headers.get('x-api-key')
-    return `pro:${apiKey}`
-  },
+  identifier: (req) => `pro:${req.headers.get('x-api-key')}`,
 })
+
+export async function GET(req) {
+  const tier = await getUserTier(req)
+  const limiter = tier === 'pro' ? proLimiter : freeLimiter
+  return limiter(handler)(req)
+}
 ```
 
-### With Authentication
-
-```typescript
-import { withRateLimit } from 'nextjs-secure'
-import { getServerSession } from 'next-auth'
-
-export const GET = withRateLimit(
-  async (req, ctx) => {
-    const session = await getServerSession()
-
-    if (!session) {
-      return Response.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
-    return Response.json({ user: session.user })
-  },
-  {
-    limit: 100,
-    window: '15m',
-    identifier: async (req) => {
-      const session = await getServerSession()
-      return session?.user?.id ?? 'anonymous'
-    },
-  }
-)
-```
-
-### Webhook Endpoint
-
-```typescript
-import { withRateLimit } from 'nextjs-secure'
-import { headers } from 'next/headers'
-import crypto from 'crypto'
-
-export const POST = withRateLimit(
-  async (req) => {
-    const body = await req.text()
-    const signature = headers().get('x-webhook-signature')
-
-    // Verify signature
-    const expected = crypto
-      .createHmac('sha256', process.env.WEBHOOK_SECRET!)
-      .update(body)
-      .digest('hex')
-
-    if (signature !== expected) {
-      return Response.json({ error: 'Invalid signature' }, { status: 401 })
-    }
-
-    // Process webhook
-    const data = JSON.parse(body)
-    await processWebhook(data)
-
-    return Response.json({ received: true })
-  },
-  {
-    limit: 1000,
-    window: '1m',
-    identifier: (req) => {
-      // Rate limit by webhook source
-      return req.headers.get('x-webhook-source') ?? 'unknown'
-    },
-  }
-)
-```
+---
 
 ## Roadmap
 
-- [x] Rate Limiting (v0.1.0)
-  - [x] Sliding window algorithm
-  - [x] Fixed window algorithm
-  - [x] Token bucket algorithm
-  - [x] Memory store
-  - [x] Redis store
-  - [x] Upstash store
-- [x] CSRF Protection (v0.2.0)
-  - [x] Double submit cookie pattern
-  - [x] Token generation/validation
-  - [x] Configurable cookie settings
-- [x] Security Headers (v0.3.0)
-  - [x] Content-Security-Policy
-  - [x] Strict-Transport-Security
-  - [x] X-Frame-Options, X-Content-Type-Options
-  - [x] Permissions-Policy
-  - [x] COOP, COEP, CORP
-  - [x] Presets (strict, relaxed, api)
-- [x] Authentication (v0.4.0)
-  - [x] JWT validation (HS256, RS256, ES256)
-  - [x] API Key authentication
-  - [x] Session/Cookie authentication
-  - [x] Role-Based Access Control (RBAC)
-  - [x] Combined multi-strategy auth
-- [ ] Input Validation (v0.5.0)
-- [ ] Audit Logging (v0.6.0)
+- [x] **v0.1.x** - Rate Limiting
+- [x] **v0.2.0** - CSRF Protection
+- [x] **v0.3.0** - Security Headers
+- [x] **v0.4.0** - Authentication
+- [x] **v0.5.0** - Input Validation
+- [x] **v0.6.0** - Audit Logging
+
+See [ROADMAP.md](ROADMAP.md) for detailed progress and future plans.
+
+---
 
 ## Contributing
 
@@ -1178,10 +1032,20 @@ npm test
 npm run build
 ```
 
+### Running Tests
+
+```bash
+npm run test        # Watch mode
+npm run test:run    # Single run
+npm run test:coverage  # With coverage
+```
+
+---
+
 ## License
 
 MIT License - see [LICENSE](LICENSE) for details.
 
 ---
 
-**Star this repo** if you find it useful!
+**Made with security in mind for the Next.js community.**

@@ -32,3 +32,6 @@ yarn-error.log*
 *.tsbuildinfo
 .eslintcache
 .prettiercache
+
+# Temp folders
+tmpclaude-*
