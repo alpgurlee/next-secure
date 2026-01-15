@@ -1,6 +1,6 @@
 {
   "name": "nextjs-secure",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "description": "Production-ready security middleware for Next.js 13+ App Router",
   "author": "Alp Eren Gürle",
   "license": "MIT",
@@ -26,6 +26,9 @@
     "sql-injection",
     "audit",
     "logging",
+    "bot-detection",
+    "captcha",
+    "honeypot",
     "api"
   ],
   "type": "module",
@@ -101,6 +104,16 @@
       "require": {
         "types": "./dist/audit.d.cts",
         "default": "./dist/audit.cjs"
+      }
+    },
+    "./bot": {
+      "import": {
+        "types": "./dist/bot.d.ts",
+        "default": "./dist/bot.js"
+      },
+      "require": {
+        "types": "./dist/bot.d.cts",
+        "default": "./dist/bot.cjs"
       }
     }
   },

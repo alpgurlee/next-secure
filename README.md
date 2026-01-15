@@ -4,7 +4,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-blue.svg)](https://www.typescriptlang.org/)
 [![Next.js](https://img.shields.io/badge/Next.js-13+-black.svg)](https://nextjs.org/)
-[![Tests](https://img.shields.io/badge/tests-467%20passing-brightgreen.svg)]()
+[![Tests](https://img.shields.io/badge/tests-568%20passing-brightgreen.svg)]()
 
 Production-ready security middleware for Next.js 13+ App Router. Zero config, maximum protection.
 
@@ -52,6 +52,7 @@ pnpm add nextjs-secure
 - [Authentication](#authentication)
 - [Input Validation](#input-validation)
 - [Audit Logging](#audit-logging)
+- [Bot Detection](#bot-detection)
 - [Utilities](#utilities)
 - [API Reference](#api-reference)
 - [Examples](#examples)
@@ -800,6 +801,170 @@ const structuredFormatter = new StructuredFormatter({
 
 ---
 
+## Bot Detection
+
+Protect your endpoints from automated bots, scrapers, and spam.
+
+### Basic Usage
+
+```typescript
+import { withBotProtection } from 'nextjs-secure/bot'
+
+export const POST = withBotProtection(handler, {
+  userAgent: {
+    blockAllBots: false,
+    allowList: ['Googlebot', 'Bingbot'],
+  },
+  honeypot: true,
+  behavior: {
+    maxRequestsPerSecond: 10,
+  },
+})
+```
+
+### Presets
+
+```typescript
+import { withBotProtectionPreset } from 'nextjs-secure/bot'
+
+// Relaxed: Only blocks obvious bots
+export const GET = withBotProtectionPreset(handler, 'relaxed')
+
+// Standard: Good balance (default)
+export const GET = withBotProtectionPreset(handler, 'standard')
+
+// Strict: Maximum protection
+export const GET = withBotProtectionPreset(handler, 'strict')
+
+// API: Optimized for API endpoints
+export const GET = withBotProtectionPreset(handler, 'api')
+```
+
+### User-Agent Detection
+
+```typescript
+import { withUserAgentProtection, analyzeUserAgent, KNOWN_BOT_PATTERNS } from 'nextjs-secure/bot'
+
+// Middleware
+export const GET = withUserAgentProtection(handler, {
+  blockAllBots: true,
+  allowCategories: ['search_engine', 'social_media'],
+  allowList: ['Googlebot', 'Twitterbot'],
+  blockList: ['BadBot'],
+})
+
+// Manual detection
+const result = analyzeUserAgent('Googlebot/2.1')
+// { isBot: true, category: 'search_engine', name: 'Googlebot', confidence: 0.95 }
+```
+
+### Honeypot Protection
+
+```typescript
+import { withHoneypotProtection, generateHoneypotHTML, generateHoneypotCSS } from 'nextjs-secure/bot'
+
+// Middleware
+export const POST = withHoneypotProtection(handler, {
+  fieldName: '_hp_email',
+  additionalFields: ['_hp_name', '_hp_phone'],
+})
+
+// Generate HTML for forms
+const honeypotHTML = generateHoneypotHTML({ fieldName: '_hp_email' })
+// Returns hidden input fields
+
+// Generate CSS
+const honeypotCSS = generateHoneypotCSS({ fieldName: '_hp_email' })
+// Returns CSS to hide fields
+```
+
+### Behavior Analysis
+
+```typescript
+import { withBehaviorProtection, MemoryBehaviorStore } from 'nextjs-secure/bot'
+
+const store = new MemoryBehaviorStore()
+
+export const GET = withBehaviorProtection(handler, {
+  store,
+  minRequestInterval: 100,    // Min ms between requests
+  maxRequestsPerSecond: 10,   // Max requests per second
+  patterns: {
+    sequentialAccess: true,   // Detect sequential URL patterns
+    regularTiming: true,      // Detect bot-like timing
+    missingHeaders: true,     // Detect missing browser headers
+  },
+})
+```
+
+### CAPTCHA Integration
+
+```typescript
+import { withCaptchaProtection, verifyCaptcha } from 'nextjs-secure/bot'
+
+// reCAPTCHA v3
+export const POST = withCaptchaProtection(handler, {
+  provider: 'recaptcha-v3',
+  siteKey: process.env.RECAPTCHA_SITE_KEY,
+  secretKey: process.env.RECAPTCHA_SECRET_KEY,
+  threshold: 0.5,
+})
+
+// hCaptcha
+export const POST = withCaptchaProtection(handler, {
+  provider: 'hcaptcha',
+  siteKey: process.env.HCAPTCHA_SITE_KEY,
+  secretKey: process.env.HCAPTCHA_SECRET_KEY,
+})
+
+// Cloudflare Turnstile
+export const POST = withCaptchaProtection(handler, {
+  provider: 'turnstile',
+  siteKey: process.env.TURNSTILE_SITE_KEY,
+  secretKey: process.env.TURNSTILE_SECRET_KEY,
+})
+
+// Manual verification
+const result = await verifyCaptcha(token, {
+  provider: 'recaptcha-v3',
+  secretKey: process.env.RECAPTCHA_SECRET_KEY,
+})
+```
+
+### Manual Bot Detection
+
+```typescript
+import { detectBot } from 'nextjs-secure/bot'
+
+const result = await detectBot(request, {
+  userAgent: { blockAllBots: true },
+  honeypot: true,
+  behavior: { maxRequestsPerSecond: 10 },
+})
+
+if (result.isBot) {
+  console.log(`Bot detected: ${result.reason}`)
+  console.log(`Category: ${result.category}`)
+  console.log(`Confidence: ${result.confidence}`)
+}
+```
+
+### Bot Categories
+
+| Category | Examples |
+|----------|----------|
+| `search_engine` | Googlebot, Bingbot, Yandex |
+| `social_media` | Twitterbot, FacebookBot, LinkedInBot |
+| `ai_crawler` | GPTBot, Claude-Web, Anthropic |
+| `monitoring` | UptimeRobot, Pingdom |
+| `feed_reader` | Feedly, Feedbin |
+| `preview` | Slackbot, Discord |
+| `scraper` | Scrapy, DataMiner |
+| `spam` | Spam bots, malicious crawlers |
+| `unknown` | Unidentified automated traffic |
+
+---
+
 ## Utilities
 
 ### Duration Parsing
@@ -903,6 +1068,24 @@ isLocalhost('127.0.0.1')      // true
 | `createSecurityTracker(config)` | Create event tracker |
 | `trackSecurityEvent(store, event)` | Track single event |
 | `redactObject(obj, config)` | Redact PII from object |
+
+### Bot Detection
+
+| Function | Description |
+|----------|-------------|
+| `withBotProtection(handler, config)` | Combined bot protection |
+| `withUserAgentProtection(handler, config)` | User-agent only protection |
+| `withHoneypotProtection(handler, config)` | Honeypot only protection |
+| `withBehaviorProtection(handler, config)` | Behavior analysis only |
+| `withCaptchaProtection(handler, config)` | CAPTCHA verification |
+| `withBotProtectionPreset(handler, preset)` | Use preset configuration |
+| `detectBot(request, config)` | Manual bot detection |
+| `analyzeUserAgent(userAgent, config)` | Analyze user-agent string |
+| `checkHoneypot(request, config)` | Check honeypot fields |
+| `checkBehavior(request, config)` | Check request behavior |
+| `verifyCaptcha(token, config)` | Verify CAPTCHA token |
+| `generateHoneypotHTML(config)` | Generate honeypot HTML |
+| `generateHoneypotCSS(config)` | Generate honeypot CSS |
 
 ---
 
@@ -1008,6 +1191,7 @@ export async function GET(req) {
 - [x] **v0.4.0** - Authentication
 - [x] **v0.5.0** - Input Validation
 - [x] **v0.6.0** - Audit Logging
+- [x] **v0.7.0** - Bot Detection
 
 See [ROADMAP.md](ROADMAP.md) for detailed progress and future plans.
 

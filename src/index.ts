@@ -286,6 +286,67 @@ export type {
 } from './middleware/audit'
 
 // =============================================================================
+// Bot Detection
+// =============================================================================
+
+export {
+  // Main middleware
+  withBotProtection,
+  withUserAgentProtection,
+  withHoneypotProtection,
+  withBehaviorProtection,
+  withCaptchaProtection,
+  withBotProtectionPreset,
+  detectBot,
+  BOT_PROTECTION_PRESETS,
+  // User-Agent
+  analyzeUserAgent,
+  isSuspiciousUA,
+  isBotAllowed,
+  getBotsByCategory,
+  createBotPattern,
+  KNOWN_BOT_PATTERNS,
+  DEFAULT_ALLOWED_CATEGORIES,
+  DEFAULT_ALLOWED_BOTS,
+  // Honeypot
+  checkHoneypot,
+  withHoneypot,
+  generateHoneypotHTML,
+  generateHoneypotCSS,
+  DEFAULT_HONEYPOT_FIELDS,
+  // Behavior
+  MemoryBehaviorStore,
+  analyzeBehavior,
+  checkBehavior,
+  getGlobalBehaviorStore,
+  withBehaviorAnalysis,
+  // CAPTCHA
+  verifyCaptcha,
+  checkCaptcha,
+  withCaptcha,
+  generateRecaptchaV2,
+  generateRecaptchaV3,
+  generateHCaptcha,
+  generateTurnstile,
+} from './middleware/bot'
+
+export type {
+  BotCategory,
+  BotDetectionResult,
+  BotPattern,
+  UserAgentOptions,
+  HoneypotOptions,
+  BehaviorOptions,
+  BehaviorStore,
+  BehaviorAnalysisResult,
+  CaptchaProvider,
+  CaptchaOptions,
+  CaptchaResult,
+  BotProtectionOptions,
+  BotContext,
+} from './middleware/bot'
+
+// =============================================================================
 // Utilities
 // =============================================================================
 
@@ -314,4 +375,4 @@ export {
 /**
  * Package version
  */
-export const VERSION = '0.6.0'
+export const VERSION = '0.7.0'

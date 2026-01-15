@@ -2,8 +2,8 @@
 
 ## Current Status
 
-**Version:** 0.6.0
-**Status:** All core features complete
+**Version:** 0.7.0
+**Status:** All core features complete + Bot Detection
 
 ---
 
@@ -334,25 +334,48 @@ const datadogStore = createDatadogStore({
 
 ---
 
-## v0.7.0 - Bot Detection (Planned)
+## v0.7.0 - Bot Detection ✅
 
-### Features
-- [ ] User-agent analysis and known bot detection
-- [ ] Behavior analysis (request timing patterns)
-- [ ] Honeypot fields for forms
-- [ ] CAPTCHA integration (reCAPTCHA, hCaptcha, Turnstile)
-- [ ] Browser fingerprinting
-- [ ] Challenge-response verification
+### Completed
+- [x] User-agent analysis with 50+ known bot patterns
+- [x] Bot categorization (search_engine, social_media, ai_crawler, scraper, etc.)
+- [x] Configurable allow/block lists
+- [x] Behavior analysis (request timing patterns)
+- [x] Request rate detection
+- [x] Regular timing pattern detection
+- [x] Sequential URL access detection
+- [x] Missing headers detection
+- [x] Honeypot fields for forms (HTML/CSS generators)
+- [x] CAPTCHA integration (reCAPTCHA v2/v3, hCaptcha, Turnstile)
+- [x] Preset configurations (relaxed, standard, strict, api)
+- [x] Convenience middleware functions
 
-### Planned Usage
+### Usage
 ```typescript
-import { withBotProtection } from 'nextjs-secure/bot'
+import {
+  withBotProtection,
+  withUserAgentProtection,
+  withHoneypotProtection,
+  withBehaviorProtection,
+  withCaptchaProtection,
+  withBotProtectionPreset,
+  detectBot,
+  analyzeUserAgent,
+  checkHoneypot,
+  generateHoneypotHTML,
+  BOT_PROTECTION_PRESETS
+} from 'nextjs-secure/bot'
 
+// Combined bot protection
 export const POST = withBotProtection(handler, {
-  honeypot: { fieldName: '_hp_field' },
   userAgent: {
-    blockKnownBots: true,
+    blockAllBots: false,
     allowList: ['Googlebot', 'Bingbot'],
+    blockList: ['BadBot'],
+  },
+  honeypot: {
+    fieldName: '_hp_email',
+    additionalFields: ['_hp_name'],
   },
   behavior: {
     minRequestInterval: 100, // ms
@@ -360,16 +383,45 @@ export const POST = withBotProtection(handler, {
   },
 })
 
+// Use presets
+export const GET = withBotProtectionPreset(handler, 'strict')
+export const POST = withBotProtectionPreset(handler, 'api')
+
+// Individual protection
+export const GET = withUserAgentProtection(handler, { blockAllBots: true })
+export const POST = withHoneypotProtection(handler)
+export const GET = withBehaviorProtection(handler, { maxRequestsPerSecond: 5 })
+
 // With CAPTCHA
-export const POST = withBotProtection(handler, {
-  captcha: {
-    provider: 'recaptcha',
-    siteKey: process.env.RECAPTCHA_SITE_KEY,
-    secretKey: process.env.RECAPTCHA_SECRET_KEY,
-    threshold: 0.5,
-  },
+export const POST = withCaptchaProtection(handler, {
+  provider: 'recaptcha-v3',
+  siteKey: process.env.RECAPTCHA_SITE_KEY,
+  secretKey: process.env.RECAPTCHA_SECRET_KEY,
+  threshold: 0.5,
 })
+
+// Manual detection
+const result = await detectBot(request, {
+  userAgent: { blockAllBots: true },
+  honeypot: true,
+  behavior: { maxRequestsPerSecond: 10 },
+})
+if (result.isBot) {
+  console.log(`Bot detected: ${result.reason}`)
+}
+
+// User-agent analysis
+const uaResult = analyzeUserAgent('Googlebot/2.1')
+// { isBot: true, category: 'search_engine', name: 'Googlebot', confidence: 0.95 }
+
+// Generate honeypot HTML for forms
+const honeypotHTML = generateHoneypotHTML({ fieldName: '_hp_email' })
 ```
+
+### Future Enhancements
+- [ ] Browser fingerprinting
+- [ ] Challenge-response verification
+- [ ] Machine learning-based detection
 
 ---
 
@@ -648,7 +700,8 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for details.
 | 0.4.0 | 2025-01-11 | Authentication |
 | 0.5.0 | 2025-01-11 | Input Validation |
 | 0.6.0 | 2025-01-12 | Audit Logging |
+| 0.7.0 | 2025-01-15 | Bot Detection |
 
 ---
 
-**Last Updated:** 2025-01-12
+**Last Updated:** 2025-01-15
