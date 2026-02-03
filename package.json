@@ -1,6 +1,6 @@
 {
   "name": "nextjs-secure",
-  "version": "0.7.0",
+  "version": "0.8.0",
   "description": "Production-ready security middleware for Next.js 13+ App Router",
   "author": "Alp Eren Gürle",
   "license": "MIT",
@@ -114,6 +114,16 @@
       "require": {
         "types": "./dist/bot.d.cts",
         "default": "./dist/bot.cjs"
+      }
+    },
+    "./api": {
+      "import": {
+        "types": "./dist/api.d.ts",
+        "default": "./dist/api.js"
+      },
+      "require": {
+        "types": "./dist/api.d.cts",
+        "default": "./dist/api.cjs"
       }
     }
   },

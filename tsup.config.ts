@@ -10,6 +10,7 @@ export default defineConfig({
     validation: 'src/middleware/validation/index.ts',
     audit: 'src/middleware/audit/index.ts',
     bot: 'src/middleware/bot/index.ts',
+    api: 'src/middleware/api/index.ts',
   },
   format: ['cjs', 'esm'],
   dts: true,

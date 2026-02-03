@@ -2,8 +2,8 @@
 
 ## Current Status
 
-**Version:** 0.7.0
-**Status:** All core features complete + Bot Detection
+**Version:** 0.8.0
+**Status:** All core features complete + Bot Detection + API Security
 
 ---
 
@@ -425,43 +425,113 @@ const honeypotHTML = generateHoneypotHTML({ fieldName: '_hp_email' })
 
 ---
 
-## v0.8.0 - API Security (Planned)
+## v0.8.0 - API Security ✅
 
-### Features
-- [ ] Request signing (HMAC signatures)
-- [ ] Replay attack prevention (nonce-based)
-- [ ] Request timestamp validation
-- [ ] API versioning helpers
-- [ ] Request freshness validation
-- [ ] Idempotency key support
+### Completed
+- [x] Request signing (HMAC-SHA256/SHA512)
+- [x] Timing-safe signature comparison
+- [x] Canonical request string building
+- [x] Replay attack prevention (nonce-based)
+- [x] Memory nonce store with LRU eviction
+- [x] Request timestamp validation (unix, unix-ms, iso8601)
+- [x] API versioning helpers (header, query, path, accept)
+- [x] Version deprecation headers (RFC 8594)
+- [x] Idempotency key support with response caching
+- [x] Concurrent request handling (processing locks)
+- [x] Preset configurations (basic, standard, strict, financial)
+- [x] Combined API protection middleware
 
-### Planned Usage
+### Usage
 ```typescript
-import { withRequestSigning, withReplayPrevention } from 'nextjs-secure/api'
+import {
+  withRequestSigning,
+  withReplayPrevention,
+  withTimestamp,
+  withAPIVersion,
+  withIdempotency,
+  withAPIProtection,
+  withAPIProtectionPreset,
+  MemoryNonceStore,
+  MemoryIdempotencyStore,
+  generateSignature,
+  generateNonce,
+  generateIdempotencyKey,
+  createVersionRouter,
+} from 'nextjs-secure/api'
 
-// Request signing
+// Request signing (HMAC)
 export const POST = withRequestSigning(handler, {
   secret: process.env.API_SECRET,
-  algorithm: 'sha256',
-  headerName: 'x-signature',
+  algorithm: 'sha256', // or 'sha512'
   timestampTolerance: 300, // 5 minutes
+  components: {
+    method: true,
+    path: true,
+    body: true,
+    timestamp: true,
+  },
 })
 
 // Replay prevention
+const nonceStore = new MemoryNonceStore({ maxSize: 10000 })
 export const POST = withReplayPrevention(handler, {
-  store: redisStore,
-  nonceHeader: 'x-nonce',
-  ttl: '5m',
+  store: nonceStore,
+  ttl: 300000, // 5 minutes
+  required: true,
 })
 
-// API versioning
-export const GET = withAPIVersion(handler, {
-  header: 'x-api-version',
-  supported: ['v1', 'v2'],
-  current: 'v2',
-  deprecated: ['v1'],
+// Timestamp validation
+export const POST = withTimestamp(handler, {
+  maxAge: 300, // 5 minutes
+  format: 'unix', // 'unix' | 'unix-ms' | 'iso8601'
+  required: true,
 })
+
+// API versioning with deprecation
+export const GET = withAPIVersion(handler, {
+  current: 'v2',
+  supported: ['v1', 'v2', 'v3'],
+  deprecated: ['v1'],
+  sunset: ['v0'],
+  source: 'header', // 'header' | 'query' | 'path' | 'accept'
+  addDeprecationHeaders: true,
+})
+
+// Version-based routing
+const router = createVersionRouter({
+  v1: v1Handler,
+  v2: v2Handler,
+}, { default: 'v2' })
+
+// Idempotency keys (for payments/critical operations)
+const idempotencyStore = new MemoryIdempotencyStore()
+export const POST = withIdempotency(handler, {
+  store: idempotencyStore,
+  ttl: 86400000, // 24 hours
+  required: true,
+  hashRequestBody: true,
+})
+
+// Combined API protection
+export const POST = withAPIProtection(handler, {
+  signing: { secret: process.env.API_SECRET },
+  replay: { store: nonceStore, ttl: 300000 },
+  timestamp: { maxAge: 300 },
+  versioning: { current: 'v2', supported: ['v1', 'v2'] },
+  idempotency: { store: idempotencyStore },
+})
+
+// Use presets
+export const POST = withAPIProtectionPreset(handler, 'basic')    // Minimal
+export const POST = withAPIProtectionPreset(handler, 'standard') // Balanced
+export const POST = withAPIProtectionPreset(handler, 'strict')   // Maximum
+export const POST = withAPIProtectionPreset(handler, 'financial') // Banking/Payment
 ```
+
+### Future Enhancements
+- [ ] Redis-backed nonce/idempotency stores
+- [ ] Request encryption (AES-GCM)
+- [ ] API key rotation helpers
 
 ---
 
@@ -701,7 +771,8 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for details.
 | 0.5.0 | 2025-01-11 | Input Validation |
 | 0.6.0 | 2025-01-12 | Audit Logging |
 | 0.7.0 | 2025-01-15 | Bot Detection |
+| 0.8.0 | 2025-02-04 | API Security |
 
 ---
 
-**Last Updated:** 2025-01-15
+**Last Updated:** 2025-02-04

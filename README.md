@@ -4,7 +4,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-blue.svg)](https://www.typescriptlang.org/)
 [![Next.js](https://img.shields.io/badge/Next.js-13+-black.svg)](https://nextjs.org/)
-[![Tests](https://img.shields.io/badge/tests-568%20passing-brightgreen.svg)]()
+[![Tests](https://img.shields.io/badge/tests-709%20passing-brightgreen.svg)]()
 
 Production-ready security middleware for Next.js 13+ App Router. Zero config, maximum protection.
 
@@ -53,6 +53,7 @@ pnpm add nextjs-secure
 - [Input Validation](#input-validation)
 - [Audit Logging](#audit-logging)
 - [Bot Detection](#bot-detection)
+- [API Security](#api-security)
 - [Utilities](#utilities)
 - [API Reference](#api-reference)
 - [Examples](#examples)
@@ -965,6 +966,210 @@ if (result.isBot) {
 
 ---
 
+## API Security
+
+Protect your APIs with request signing, replay prevention, and versioning.
+
+### Request Signing (HMAC)
+
+Sign and verify requests using HMAC to prevent tampering.
+
+```typescript
+import { withRequestSigning, generateSignature } from 'nextjs-secure/api'
+
+// Server: Verify signed requests
+export const POST = withRequestSigning(handler, {
+  secret: process.env.API_SECRET,
+  algorithm: 'sha256', // or 'sha512'
+  timestampTolerance: 300, // 5 minutes
+})
+
+// Client: Sign outgoing requests
+const timestamp = Math.floor(Date.now() / 1000).toString()
+const signature = await generateSignature(request, {
+  secret: API_SECRET,
+  algorithm: 'sha256',
+})
+
+fetch('/api/data', {
+  method: 'POST',
+  headers: {
+    'x-timestamp': timestamp,
+    'x-signature': signature,
+  },
+  body: JSON.stringify(data),
+})
+```
+
+### Custom Signing Components
+
+```typescript
+export const POST = withRequestSigning(handler, {
+  secret: process.env.API_SECRET,
+  components: {
+    method: true,
+    path: true,
+    query: true,
+    body: true,
+    timestamp: true,
+  },
+  signatureHeader: 'x-signature',
+  timestampHeader: 'x-timestamp',
+})
+```
+
+### Replay Prevention
+
+Prevent replay attacks using nonces.
+
+```typescript
+import { withReplayPrevention, MemoryNonceStore, generateNonce } from 'nextjs-secure/api'
+
+const store = new MemoryNonceStore({ maxSize: 10000, ttl: 300000 })
+
+// Server: Block replay attacks
+export const POST = withReplayPrevention(handler, {
+  store,
+  ttl: 300000, // 5 minutes
+  required: true,
+  nonceHeader: 'x-nonce',
+})
+
+// Client: Generate unique nonce
+const nonce = generateNonce(32)
+fetch('/api/payment', {
+  method: 'POST',
+  headers: { 'x-nonce': nonce },
+  body: JSON.stringify(data),
+})
+```
+
+### Timestamp Validation
+
+Reject old or future-dated requests.
+
+```typescript
+import { withTimestamp, validateTimestamp } from 'nextjs-secure/api'
+
+export const POST = withTimestamp(handler, {
+  maxAge: 300, // 5 minutes
+  format: 'unix', // 'unix' | 'unix-ms' | 'iso8601'
+  required: true,
+  allowFuture: false,
+  timestampHeader: 'x-timestamp',
+})
+
+// Manual validation
+const result = validateTimestamp(request, { maxAge: 300 })
+if (!result.valid) {
+  console.log(result.reason) // 'Timestamp too old'
+}
+```
+
+### API Versioning
+
+Manage API versions with deprecation support.
+
+```typescript
+import { withAPIVersion, createVersionRouter, extractVersion } from 'nextjs-secure/api'
+
+// Single version validation
+export const GET = withAPIVersion(handler, {
+  current: 'v2',
+  supported: ['v1', 'v2', 'v3'],
+  deprecated: ['v1'],
+  sunset: ['v0'],
+  source: 'header', // 'header' | 'query' | 'path' | 'accept'
+  addDeprecationHeaders: true,
+})
+
+// Version-based routing
+const router = createVersionRouter({
+  v1: v1Handler,
+  v2: v2Handler,
+  v3: v3Handler,
+}, { default: 'v2' })
+
+export const GET = router
+```
+
+### Idempotency Keys
+
+Ensure safe retries for payment and critical operations.
+
+```typescript
+import { withIdempotency, MemoryIdempotencyStore, generateIdempotencyKey } from 'nextjs-secure/api'
+
+const store = new MemoryIdempotencyStore({ maxSize: 10000 })
+
+// Server: Handle idempotent requests
+export const POST = withIdempotency(handler, {
+  store,
+  ttl: 86400000, // 24 hours
+  required: true,
+  keyHeader: 'idempotency-key',
+  hashRequestBody: true, // Detect body mismatches
+})
+
+// Client: Use idempotency key
+const key = generateIdempotencyKey()
+fetch('/api/payment', {
+  method: 'POST',
+  headers: { 'idempotency-key': key },
+  body: JSON.stringify(payment),
+})
+```
+
+### Combined API Protection
+
+Use presets for common security profiles.
+
+```typescript
+import { withAPIProtection, withAPIProtectionPreset } from 'nextjs-secure/api'
+
+// Full configuration
+export const POST = withAPIProtection(handler, {
+  signing: {
+    secret: process.env.API_SECRET,
+    algorithm: 'sha256',
+  },
+  replay: {
+    store: nonceStore,
+    ttl: 300000,
+  },
+  timestamp: {
+    maxAge: 300,
+    required: true,
+  },
+  versioning: {
+    current: 'v2',
+    supported: ['v1', 'v2'],
+  },
+  idempotency: {
+    store: idempotencyStore,
+    required: true,
+  },
+})
+
+// Presets
+export const POST = withAPIProtectionPreset(handler, 'basic')    // Minimal
+export const POST = withAPIProtectionPreset(handler, 'standard') // Balanced
+export const POST = withAPIProtectionPreset(handler, 'strict')   // Maximum
+export const POST = withAPIProtectionPreset(handler, 'financial') // Banking/Payment
+```
+
+### Preset Comparison
+
+| Feature | Basic | Standard | Strict | Financial |
+|---------|-------|----------|--------|-----------|
+| Signing | ❌ | ❌ | SHA-256 | SHA-512 |
+| Replay Prevention | ❌ | ✅ (5min) | ✅ (5min) | ✅ (24h) |
+| Timestamp Validation | ✅ (10min) | ✅ (5min) | ✅ (5min) | ✅ (1min) |
+| Idempotency | ❌ | ❌ | ✅ (1h) | ✅ (24h) |
+| Versioning | ❌ | ❌ | ✅ | ✅ |
+
+---
+
 ## Utilities
 
 ### Duration Parsing
@@ -1087,6 +1292,27 @@ isLocalhost('127.0.0.1')      // true
 | `generateHoneypotHTML(config)` | Generate honeypot HTML |
 | `generateHoneypotCSS(config)` | Generate honeypot CSS |
 
+### API Security
+
+| Function | Description |
+|----------|-------------|
+| `withRequestSigning(handler, config)` | HMAC request signing |
+| `withReplayPrevention(handler, config)` | Nonce-based replay prevention |
+| `withTimestamp(handler, config)` | Timestamp validation |
+| `withAPIVersion(handler, config)` | API version validation |
+| `withIdempotency(handler, config)` | Idempotency key support |
+| `withAPIProtection(handler, config)` | Combined API protection |
+| `withAPIProtectionPreset(handler, preset)` | Use preset configuration |
+| `generateSignature(request, config)` | Generate HMAC signature |
+| `verifySignature(request, config)` | Verify HMAC signature |
+| `generateNonce(length)` | Generate secure nonce |
+| `checkReplay(request, config)` | Check for replay attack |
+| `validateTimestamp(request, config)` | Validate request timestamp |
+| `extractVersion(request, config)` | Extract API version |
+| `createVersionRouter(handlers, config)` | Create version-based router |
+| `generateIdempotencyKey(length)` | Generate idempotency key |
+| `checkIdempotency(request, config)` | Check idempotency status |
+
 ---
 
 ## Examples
@@ -1192,6 +1418,7 @@ export async function GET(req) {
 - [x] **v0.5.0** - Input Validation
 - [x] **v0.6.0** - Audit Logging
 - [x] **v0.7.0** - Bot Detection
+- [x] **v0.8.0** - API Security
 
 See [ROADMAP.md](ROADMAP.md) for detailed progress and future plans.
 

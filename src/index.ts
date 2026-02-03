@@ -347,6 +347,96 @@ export type {
 } from './middleware/bot'
 
 // =============================================================================
+// API Security
+// =============================================================================
+
+export {
+  // Main middleware
+  withAPIProtection,
+  withAPIProtectionPreset,
+  checkAPIProtection,
+  API_PROTECTION_PRESETS,
+  // Signing
+  withRequestSigning,
+  verifySignature,
+  generateSignature,
+  generateSignatureHeaders,
+  createHMAC,
+  timingSafeEqual,
+  buildCanonicalString,
+  // Replay Prevention
+  withReplayPrevention,
+  checkReplay,
+  MemoryNonceStore,
+  getGlobalNonceStore,
+  generateNonce,
+  isValidNonceFormat,
+  addNonceHeader,
+  // Timestamp
+  withTimestamp,
+  validateTimestamp,
+  parseTimestamp,
+  formatTimestamp,
+  isTimestampValid,
+  addTimestampHeader,
+  getRequestAge,
+  // Versioning
+  withAPIVersion,
+  validateVersion,
+  extractVersion,
+  getVersionStatus,
+  isVersionSupported,
+  createVersionRouter,
+  addDeprecationHeaders,
+  compareVersions,
+  normalizeVersion,
+  // Idempotency
+  withIdempotency,
+  checkIdempotency,
+  cacheResponse,
+  MemoryIdempotencyStore,
+  getGlobalIdempotencyStore,
+  generateIdempotencyKey,
+  hashRequestBody,
+  isValidIdempotencyKey,
+  createResponseFromCache,
+  addIdempotencyHeader,
+} from './middleware/api'
+
+export type {
+  // Signing types
+  SigningAlgorithm,
+  SignatureEncoding,
+  SignatureComponents,
+  SigningOptions,
+  SignatureResult,
+  // Replay types
+  NonceStore,
+  ReplayPreventionOptions,
+  ReplayCheckResult,
+  // Timestamp types
+  TimestampFormat,
+  TimestampOptions,
+  TimestampResult,
+  // Versioning types
+  VersionSource,
+  VersionStatus,
+  VersionInfo,
+  VersioningOptions,
+  VersionResult,
+  // Idempotency types
+  CachedResponse,
+  IdempotencyStore,
+  IdempotencyOptions,
+  IdempotencyResult,
+  // Combined types
+  APIProtectionPreset,
+  APIProtectionOptions,
+  APISecurityError,
+  APIProtectionResult,
+} from './middleware/api'
+
+// =============================================================================
 // Utilities
 // =============================================================================
 
@@ -375,4 +465,4 @@ export {
 /**
  * Package version
  */
-export const VERSION = '0.7.0'
+export const VERSION = '0.8.0'
